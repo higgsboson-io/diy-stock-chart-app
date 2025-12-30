@@ -1,9 +1,11 @@
 # DIY Stock Chart - Python Financial Analysis Tool
 
+[![PayPal - $10](https://img.shields.io/badge/PayPal-$10-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/briannlhotmail/10) [![Donate to Campfire Circle](https://img.shields.io/badge/Donate-Campfire%20Circle-orange?style=for-the-badge&logo=heart&logoColor=white)](https://support.campfirecircle.org/diy/helping-the-kids-to-recover) [![Donate to SickKids](https://img.shields.io/badge/Donate-SickKids-blue?style=for-the-badge&logo=heart&logoColor=white)](https://give.sickkidsfoundation.com/fundraisers/brianli/healthy-kids)
+
+
 - A interactive stock technical analysis application built with Python (`tkinter` + `matplotlib`). This project demonstrates how to build a simplistic stock charting tool from scratch, featuring Yahoo FInance free market data, advanced technical indicators, volume profiling, and a responsive custom UI.
 - This is a 0-coding project and every line of code is done by Anti Gravity with Gemini 3.0 pro.
 - Refer to the [AI readme](ai-readme.md) for more details on the prompt jurney.
-
 ## 🚀 Key Features
 
 *   **Simplicity**: Simple GUI app without any need of web hosting or DB. All data are downloaded ad-hoc and maintained locally as CSVs. Minutes data are retrieved and kept in memory without writing too much junk on disk.
@@ -22,6 +24,8 @@
     *   **Crosshair**: Precision mouse tracking with Date, Time, Price, and Volume data.
     *   **FHD/4K Support**: Dynamic font scaling and layout adjustments for different screen resolutions.
     *   **Auto-Refresh**: Background "Always-On" refresh loop for active trading sessions.
+
+[![PayPal - $10](https://img.shields.io/badge/PayPal-$10-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/briannlhotmail/10) [![Donate to Campfire Circle](https://img.shields.io/badge/Donate-Campfire%20Circle-orange?style=for-the-badge&logo=heart&logoColor=white)](https://support.campfirecircle.org/diy/helping-the-kids-to-recover) [![Donate to SickKids](https://img.shields.io/badge/Donate-SickKids-blue?style=for-the-badge&logo=heart&logoColor=white)](https://give.sickkidsfoundation.com/fundraisers/brianli/healthy-kids)
 
 ---
 
@@ -66,6 +70,8 @@ Volume is overlayed on the main chart (bottom 25%) to allow price action (like t
 ### Interactive Features
 *   **Left Click + Drag**: Measure price/time differences (Crosshair active).
 *   **Auto-Refresh**: When viewing the **1D** chart, the data automatically reloads every 60 seconds to capture the latest minute bar.
+
+[![PayPal - $10](https://img.shields.io/badge/PayPal-$10-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/briannlhotmail/10) [![Donate to Campfire Circle](https://img.shields.io/badge/Donate-Campfire%20Circle-orange?style=for-the-badge&logo=heart&logoColor=white)](https://support.campfirecircle.org/diy/helping-the-kids-to-recover) [![Donate to SickKids](https://img.shields.io/badge/Donate-SickKids-blue?style=for-the-badge&logo=heart&logoColor=white)](https://give.sickkidsfoundation.com/fundraisers/brianli/healthy-kids)
 
 ---
 
@@ -163,3 +169,5 @@ The application uses Matplotlib's `GridSpec` with a **Weighted Ratio System** to
 ---
 - **License**: MIT Open Source
 - **Author**: Higgs Boson Inovations
+
+[![PayPal - $10](https://img.shields.io/badge/PayPal-$10-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/briannlhotmail/10) [![Donate to Campfire Circle](https://img.shields.io/badge/Donate-Campfire%20Circle-orange?style=for-the-badge&logo=heart&logoColor=white)](https://support.campfirecircle.org/diy/helping-the-kids-to-recover) [![Donate to SickKids](https://img.shields.io/badge/Donate-SickKids-blue?style=for-the-badge&logo=heart&logoColor=white)](https://give.sickkidsfoundation.com/fundraisers/brianli/healthy-kids)
