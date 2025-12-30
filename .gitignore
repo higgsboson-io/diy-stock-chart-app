@@ -1,0 +1,5 @@
+# Ignore the data-output directory
+**/data-output/
+
+# Ignore Python cache files
+**/__pycache__/

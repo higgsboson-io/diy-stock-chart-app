@@ -1,0 +1,6 @@
+pandas
+yfinance
+finta
+matplotlib
+types-requests
+types-setuptools
