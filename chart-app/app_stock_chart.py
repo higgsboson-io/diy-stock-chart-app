@@ -38,6 +38,9 @@ class StockChartApp:
         self.current_ticker = ""
         self.history_df = pd.DataFrame()
         self.data_queue = queue.Queue()
+        self.previous_close = 0.0 
+        self.current_price = 0.0 # Store metadata price for Title accuracy
+
         
         # State variables for controls
         self.time_window_var = tk.StringVar(value="1Y")
@@ -147,11 +150,13 @@ class StockChartApp:
                 self.ticker_entry.config(state="normal")
                 
                 if msg_type == 'data':
-                    df, company_name, interval = content
+                    df, company_name, interval, prev_close, curr_price = content
                     if df is not None and not df.empty:
                         self.raw_df = df
                         self.current_data_interval = interval
                         self.company_name = company_name
+                        self.previous_close = prev_close
+                        self.current_price = curr_price
                         self.root.title(f"DIY - Interactive Stock Chart - {company_name} ({self.current_ticker})")
                         
                         # Initial Process based on current window
@@ -275,20 +280,25 @@ class StockChartApp:
                                 f.unlink()
                             except: pass
                         
-            # Try to fetch Company Name (Best Effort)
+            # Try to fetch Company Name, Previous Close, and Current Price
             company_name = ticker
+            prev_close = 0.0
+            curr_price = 0.0
             try:
                 import yfinance as yf
                 t = yf.Ticker(ticker)
                 company_name = t.info.get('shortName', t.info.get('longName', ticker))
+                prev_close = t.info.get('previousClose', 0.0)
+                # Try 'currentPrice' first (realtime), then 'regularMarketPrice' (delayed/close), then 'price'
+                curr_price = t.info.get('currentPrice') or t.info.get('regularMarketPrice') or 0.0
             except Exception as e:
-                logger.warning(f"Failed to fetch company name: {e}")
+                logger.warning(f"Failed to fetch metadata: {e}")
 
             # Put in queue
             if df is None or df.empty:
                  self.data_queue.put(('error', f"No data found for {ticker}"))
             else:
-                 self.data_queue.put(('data', (df, company_name, interval)))
+                 self.data_queue.put(('data', (df, company_name, interval, prev_close, curr_price)))
                  
         except Exception as e:
             logger.error(f"Download thread error: {e}")
@@ -701,12 +711,24 @@ class StockChartApp:
         price_weight = 100 - (other_weight * num_others)
         ratios = [price_weight] + [other_weight] * num_others
         
-        # Calculate Stats
+        # Calculate Stats (Handle NaNs from Reindexing)
         company = getattr(self, 'company_name', self.current_ticker)
-        start_price = df['close'].iloc[0]
-        end_price = df['close'].iloc[-1]
+        
+        valid_closes = df['close'].dropna()
+        if not valid_closes.empty:
+            start_price = valid_closes.iloc[0]
+            end_price = valid_closes.iloc[-1]
+            
+            # Use Previous Close for 1D Daily Change
+            if self.time_window_var.get() == "1D":
+                if self.previous_close > 0: start_price = self.previous_close
+                if self.current_price > 0: end_price = self.current_price
+        else:
+            start_price = 0.0
+            end_price = 0.0
+            
         change = end_price - start_price
-        pct_change = (change / start_price) * 100
+        pct_change = (change / start_price) * 100 if start_price != 0 else 0
         sign = "+" if change >= 0 else ""
         color = "green" if change >= 0 else "red"
         
