@@ -70,6 +70,38 @@ This document chronicles the step-by-step evolution of the **DIY Stock Chart** a
 
 ---
 
+### Phase 7: The "Floating Panel" Odyssey
+**User Prompt**: *"I want to add a retractable pannel... occupy exactly 30%... scrollable."*
+*   **Attempt 1**: Implemented a `PanedWindow` (Split View).
+*   **Feedback**: *"The retractable is ugly... make a floatable panel... I can manually drag it."*
+
+**The "High-DPI" Trap (The Drifting Bug)**
+*   **Attempt 2**: Created a native floating frame with mouse-drag bindings.
+*   **Critical Failure**: *"Once I click title, it moved to right edge... drifting... gap is constant."*
+*   **Root Cause**: Windows Display Scaling (125%/150%) causes coordinate mismatches between Python's virtual pixels and the OS's physical pointer.
+*   **The Pivot**: Proposed **"Corner Snapping"** instead of dragging.
+    *   **User Decision**: *"Go ahead."*
+    *   **Result**: Implemented a Dropdown (`Bottom-Right`, `Center`, etc.) using `relx/rely` positioning. **Zero Drift. 100% Stable.**
+
+**Visual Polish (Auto-Sizing)**
+*   **User Prompt**: *"Panel size does not change with font... attributes cut."*
+*   **Fix 1**: Hooked into `update_ui_font` to sync panel font.
+*   **Fix 2**: Removed fixed `height=600`. Enabled **Tkinter Auto-Sizing** to "shrink-wrap" the panel around the text, regardless of font size.
+
+**Data Forensics: Stock vs. ETF**
+*   **Challenge**: *"SPY missing expense ratio... AAPL yield is 3800%... PEG missing."*
+*   **Investigation**: Created temporary debug scripts (`debug_peg.py`, `debug_etf.py`) to inspect raw `yfinance` dumps.
+*   **Discoveries & Fixes**:
+    1.  **PEG Ratio**: specific key `trailingPegRatio` was needed for AAPL (hidden from standard `pegRatio`).
+    2.  **ETF Beta**: ETFs store beta in `beta3Year`, not `beta`.
+    3.  **Expense Ratio**: Found in `netExpenseRatio`. Raw value `0.09` is already %, needed formatting fix.
+    4.  **Dividend Yield**: 
+        *   *Stock*: Manually calculated `Rate/Price` to fix API scaling errors.
+        *   *ETF*: Switched to `yield` key (SEC 30-Day Yield) to match Yahoo Finance website (1.06% vs 0.83% TTM).
+    5.  **Crash**: Fixed `UnboundLocalError: q_type` by hoisting type-check logic.
+
+---
+
 ## 🏆 Summary
 This project evolved from a script that "drew a picture" to a fully interactive financial workspace. The key to success was the **Iterative Feedback Loop**:
 1.  **User**: "This looks wrong." (e.g., Weekends showing as gaps)
