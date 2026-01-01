@@ -68,16 +68,8 @@ class StockChartApp:
         self.vp_position = tk.StringVar(value="Right") # Left or Right
         self.show_info = tk.BooleanVar(value=False) # Info Panel Toggle
         self.stock_info = {} # Store fetched metadata
-        
-        # Panel Positioning Map (Inset to avoid Axis Labels)
-        # User requested "down a bit" -> rely=0.92 (Lower)
-        self.panel_pos_map = {
-            "Bottom Right":  {'relx': 0.94, 'rely': 0.92, 'anchor': 'se'},
-            "Bottom Center": {'relx': 0.50, 'rely': 0.92, 'anchor': 's'},
-            "Bottom Left":   {'relx': 0.06, 'rely': 0.92, 'anchor': 'sw'},
-        }
-        
-        self.info_visibility_var = tk.StringVar(value="Hide Info")
+        self.info_last_pos = {'x': 40, 'y': 40} # Remember last drag position
+        self._drag_offset = {'x': 0, 'y': 0}
         
         # Crosshair refs
         self.crosshair_lines = {}
@@ -430,33 +422,61 @@ class StockChartApp:
         self._calculate_indicators(self.history_df)
         self.update_chart()
 
-        
         # Initial Toggle State
         self.toggle_info_panel()
-        
-    def _apply_panel_position(self):
-        mode = self.info_visibility_var.get()
-        if mode == "Hide Info" or mode not in self.panel_pos_map:
-             return
-        
-        pos = self.panel_pos_map[mode]
-        
-        # Use relx/rely for DPI-immune positioning
-        # Height is removed to allow Auto-Sizing (Shrink to content)
-        self.info_frame.place(
-            relx=pos['relx'], 
-            rely=pos['rely'], 
-            anchor=pos['anchor'], 
-            width=900
-        )
+
+    def _clamp_info_position(self, x, y):
+        """Clamp the floating panel within the chart frame."""
+        try:
+            chart = self.chart_frame
+            chart.update_idletasks()
+            chart_x = chart.winfo_rootx()
+            chart_y = chart.winfo_rooty()
+            chart_w = chart.winfo_width()
+            chart_h = chart.winfo_height()
+
+            self.info_frame.update_idletasks()
+            panel_w = self.info_frame.winfo_width() or 300
+            panel_h = self.info_frame.winfo_height() or 200
+
+            x = min(max(x, chart_x), chart_x + chart_w - panel_w)
+            y = min(max(y, chart_y), chart_y + chart_h - panel_h)
+        except Exception:
+            pass
+        return x, y
+
+    def _place_info_frame(self, x=None, y=None):
+        """Place the info frame at a stored or provided position."""
+        if x is None or y is None:
+            x = self.info_last_pos.get('x', 40)
+            y = self.info_last_pos.get('y', 40)
+
+        x, y = self._clamp_info_position(x, y)
+        self.info_last_pos = {'x': x, 'y': y}
+        self.info_frame.place(x=x, y=y)
         self.info_frame.lift()
 
+    def _close_info_panel(self):
+        self.show_info.set(False)
+        self.info_frame.place_forget()
+
     def toggle_info_panel(self, event=None):
-        if self.info_visibility_var.get() != "Hide Info":
-             self._apply_panel_position()
+        if self.show_info.get():
              self.update_info_panel()
+             self._place_info_frame()
         else:
              self.info_frame.place_forget()
+
+    def _start_drag_info(self, event):
+        self._drag_offset['x'] = event.x
+        self._drag_offset['y'] = event.y
+
+    def _drag_info(self, event):
+        x = event.x_root - self._drag_offset['x']
+        y = event.y_root - self._drag_offset['y']
+        x, y = self._clamp_info_position(x, y)
+        self.info_last_pos = {'x': x, 'y': y}
+        self.info_frame.place(x=x, y=y)
 
     def update_ui_font(self):
         """Called when font size spinbox changes"""
@@ -529,8 +549,8 @@ class StockChartApp:
         for widget in self.info_content.winfo_children():
             widget.destroy()
             
-        if self.info_visibility_var.get() == "Hide Info" or not self.stock_info:
-             if self.info_visibility_var.get() != "Hide Info":
+        if not self.show_info.get() or not self.stock_info:
+             if self.show_info.get():
                  # Use base size for loading text too
                  base_size = self.font_size_var.get() or 9
                  ttk.Label(self.info_content, text="Loading Info...", font=('Arial', base_size, 'italic')).pack(pady=10)
@@ -667,7 +687,8 @@ class StockChartApp:
         self._add_section(right_frame, right_title, right_data)
         
         # Re-apply position to update height if font changed
-        self._apply_panel_position()
+        if self.show_info.get():
+            self._place_info_frame()
 
     def _setup_ui(self):
         # Top Control Panel
@@ -738,19 +759,25 @@ class StockChartApp:
         vp_mode_cb.pack(side=tk.LEFT)
         vp_mode_cb.bind("<<ComboboxSelected>>", lambda e: self.update_chart())
         
-        # Info Toggle (Combobox)
-        info_cb = ttk.Combobox(indicator_frame, textvariable=self.info_visibility_var, 
-                               values=["Hide Info", "Bottom Left", "Bottom Center", "Bottom Right"], 
-                               width=15, state="readonly")
+        # Info Toggle (Checkbox)
+        info_cb = ttk.Checkbutton(indicator_frame, text="Show Info", variable=self.show_info, command=self.toggle_info_panel)
         info_cb.pack(side=tk.RIGHT, padx=10)
-        info_cb.bind("<<ComboboxSelected>>", self.toggle_info_panel)
         # Chart Area (Standard Pack)
         self.chart_frame = ttk.Frame(self.root)
         self.chart_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
         # Floating Info Frame (Child of ROOT)
         self.info_frame = ttk.Frame(self.root, relief="raised", borderwidth=2)
-        
+        header = ttk.Frame(self.info_frame)
+        header.pack(fill="x")
+        title_lbl = ttk.Label(header, text="Info", padding=(8, 4))
+        title_lbl.pack(side=tk.LEFT)
+        close_btn = ttk.Button(header, text="×", width=2, command=self._close_info_panel)
+        close_btn.pack(side=tk.RIGHT, padx=4, pady=2)
+        # Bind drag handlers on header + title for ease
+        for widget in (header, title_lbl):
+            widget.bind("<ButtonPress-1>", self._start_drag_info)
+            widget.bind("<B1-Motion>", self._drag_info)
 
         # Content Frame (Directly inside Info Frame - NO SCROLLBAR)
         self.info_content = ttk.Frame(self.info_frame, padding=10)
