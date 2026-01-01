@@ -66,18 +66,15 @@ class StockChartApp:
         self.auto_refresh = tk.BooleanVar(value=True) # Auto-refresh toggle
         self.vp_mode_var = tk.StringVar(value="100 Bins") # VP Mode
         self.vp_position = tk.StringVar(value="Right") # Left or Right
+        # Info Panel State
         self.show_info = tk.BooleanVar(value=False) # Info Panel Toggle
         self.stock_info = {} # Store fetched metadata
         
-        # Panel Positioning Map (Inset to avoid Axis Labels)
-        # User requested "down a bit" -> rely=0.92 (Lower)
-        self.panel_pos_map = {
-            "Bottom Right":  {'relx': 0.94, 'rely': 0.92, 'anchor': 'se'},
-            "Bottom Center": {'relx': 0.50, 'rely': 0.92, 'anchor': 's'},
-            "Bottom Left":   {'relx': 0.06, 'rely': 0.92, 'anchor': 'sw'},
-        }
+        # Default Position (None = Centered on first show)
+        self.panel_x = None
+        self.panel_y = None
         
-        self.info_visibility_var = tk.StringVar(value="Hide Info")
+        # Crosshair refs
         
         # Crosshair refs
         self.crosshair_lines = {}
@@ -435,28 +432,68 @@ class StockChartApp:
         self.toggle_info_panel()
         
     def _apply_panel_position(self):
-        mode = self.info_visibility_var.get()
-        if mode == "Hide Info" or mode not in self.panel_pos_map:
+        if not self.show_info.get():
              return
         
-        pos = self.panel_pos_map[mode]
-        
-        # Use relx/rely for DPI-immune positioning
-        # Height is removed to allow Auto-Sizing (Shrink to content)
+        # First Time Show? Center it.
+        if self.panel_x is None or self.panel_y is None:
+            # Update idle tasks to ensure dimensions are accurate
+            self.root.update_idletasks()
+            
+            rw = self.root.winfo_width()
+            rh = self.root.winfo_height()
+            
+            # Dynamic Width Calculation
+            # Base 600 + (25 * Font Size). 
+            # Font 8 => 800. Font 4 => 700. Font 12 => 900.
+            current_font = self.font_size_var.get()
+            pw = 600 + (current_font * 25)
+            
+            ph = self.info_frame.winfo_reqheight() or 200 # Approx height if not rendered yet
+            
+            self.panel_x = (rw - pw) // 2
+            self.panel_y = (rh - ph) // 10 # Upper Center (10% down)
+            
+        # Recalculate width on every apply (in case font changed)
+        current_font = self.font_size_var.get()
+        target_width = 600 + (current_font * 25)
+            
+        # Use simple place with x/y
         self.info_frame.place(
-            relx=pos['relx'], 
-            rely=pos['rely'], 
-            anchor=pos['anchor'], 
-            width=900
+            x=self.panel_x, 
+            y=self.panel_y, 
+            width=target_width
         )
         self.info_frame.lift()
 
     def toggle_info_panel(self, event=None):
-        if self.info_visibility_var.get() != "Hide Info":
+        if self.show_info.get():
              self._apply_panel_position()
              self.update_info_panel()
         else:
              self.info_frame.place_forget()
+             
+    def start_drag(self, event):
+        self.drag_start_x = event.x_root
+        self.drag_start_y = event.y_root
+        self.drag_start_win_x = self.info_frame.winfo_x()
+        self.drag_start_win_y = self.info_frame.winfo_y()
+
+    def do_drag(self, event):
+        dx = event.x_root - self.drag_start_x
+        dy = event.y_root - self.drag_start_y
+        
+        new_x = self.drag_start_win_x + dx
+        new_y = self.drag_start_win_y + dy
+        
+        self.panel_x = new_x
+        self.panel_y = new_y
+        
+        self.info_frame.place(x=new_x, y=new_y)
+        
+    def close_info_panel(self):
+        self.show_info.set(False)
+        self.toggle_info_panel()
 
     def update_ui_font(self):
         """Called when font size spinbox changes"""
@@ -469,6 +506,11 @@ class StockChartApp:
             text_font = tkfont.nametofont("TkTextFont")
             text_font.configure(size=size)
             self.root.option_add("*Font", default_font)
+            
+            # Update Header Title Font explicitly (since it has custom boldness)
+            if hasattr(self, 'info_title_label'):
+                self.info_title_label.configure(font=('Arial', size + 2, 'bold'))
+                
         except Exception as e:
             print(f"Font update error: {e}")
 
@@ -477,7 +519,7 @@ class StockChartApp:
         # Trigger info panel update to resize text
         self.update_info_panel()
 
-    def _fmt(self, num, is_percent=False):
+    def _fmt(self, num, is_percent=False, trim_large=False):
         if num is None or num == 'None': return "-"
         try:
             val = float(num)
@@ -495,6 +537,8 @@ class StockChartApp:
             if abs_val >= 1e12: return f"{val/1e12:.2f}T"
             if abs_val >= 1e9: return f"{val/1e9:.2f}B"
             if abs_val >= 1e6: return f"{val/1e6:.2f}M"
+            if trim_large and abs_val >= 10000:
+                return f"{val:,.0f}"
             return f"{val:,.2f}"
         except:
              return str(num)
@@ -529,8 +573,9 @@ class StockChartApp:
         for widget in self.info_content.winfo_children():
             widget.destroy()
             
-        if self.info_visibility_var.get() == "Hide Info" or not self.stock_info:
-             if self.info_visibility_var.get() != "Hide Info":
+        if not self.show_info.get() or not self.stock_info:
+             if self.show_info.get():
+                  # Use base size for loading text too
                  # Use base size for loading text too
                  base_size = self.font_size_var.get() or 9
                  ttk.Label(self.info_content, text="Loading Info...", font=('Arial', base_size, 'italic')).pack(pady=10)
@@ -590,7 +635,7 @@ class StockChartApp:
         beta_key = 'beta3Year' if q_type == 'ETF' else 'beta'
         beta_val = i.get(beta_key) or i.get('beta')
         left_data = [
-            ("52W Range", f"{self._fmt(i.get('fiftyTwoWeekLow'))} - {self._fmt(i.get('fiftyTwoWeekHigh'))}"),
+            ("52W Range", f"{self._fmt(i.get('fiftyTwoWeekLow'), trim_large=True)} - {self._fmt(i.get('fiftyTwoWeekHigh'), trim_large=True)}"),
             ("Avg Vol", self._fmt(i.get('averageVolume'))),
             ("Beta", self._fmt(beta_val)), # Uses 3Y for ETF
             ("Fwd Div&Yield", div_str),
@@ -668,6 +713,11 @@ class StockChartApp:
         
         # Re-apply position to update height if font changed
         self._apply_panel_position()
+        
+        # Update Header Title
+        if hasattr(self, 'info_title_label'):
+             name = self.company_name if hasattr(self, 'company_name') and self.company_name else "Stock Info"
+             self.info_title_label.config(text=name)
 
     def _setup_ui(self):
         # Top Control Panel
@@ -738,12 +788,8 @@ class StockChartApp:
         vp_mode_cb.pack(side=tk.LEFT)
         vp_mode_cb.bind("<<ComboboxSelected>>", lambda e: self.update_chart())
         
-        # Info Toggle (Combobox)
-        info_cb = ttk.Combobox(indicator_frame, textvariable=self.info_visibility_var, 
-                               values=["Hide Info", "Bottom Left", "Bottom Center", "Bottom Right"], 
-                               width=15, state="readonly")
-        info_cb.pack(side=tk.RIGHT, padx=10)
-        info_cb.bind("<<ComboboxSelected>>", self.toggle_info_panel)
+        # Info Toggle (Checkbox)
+        ttk.Checkbutton(indicator_frame, text="Show Info", variable=self.show_info, command=self.toggle_info_panel).pack(side=tk.RIGHT, padx=10)
         # Chart Area (Standard Pack)
         self.chart_frame = ttk.Frame(self.root)
         self.chart_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -751,10 +797,31 @@ class StockChartApp:
         # Floating Info Frame (Child of ROOT)
         self.info_frame = ttk.Frame(self.root, relief="raised", borderwidth=2)
         
+        # --- Header for Dragging ---
+        header = ttk.Frame(self.info_frame, style="Header.TFrame")
+        header.pack(fill="x", side="top")
+        
+        # Title in Header
+        self.info_title_label = ttk.Label(header, text="Stock Info", font=('Arial', 9, 'bold'))
+        self.info_title_label.pack(side="left", padx=5, pady=2)
+        
+        # Close Button
+        close_btn = ttk.Label(header, text="X", font=('Arial', 9, 'bold'), cursor="hand2")
+        close_btn.pack(side="right", padx=5, pady=2)
+        close_btn.bind("<Button-1>", lambda e: self.close_info_panel())
+        
+        # Bind Drag
+        for w in [header, self.info_title_label]:
+            w.bind("<Button-1>", self.start_drag)
+            w.bind("<B1-Motion>", self.do_drag)
 
         # Content Frame (Directly inside Info Frame - NO SCROLLBAR)
         self.info_content = ttk.Frame(self.info_frame, padding=10)
         self.info_content.pack(fill="both", expand=True)
+        
+        # Initial placement of info_frame based on show_info state
+        if self.show_info.get():
+            self.info_frame.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.8, relheight=0.8)
         
         self.fig = plt.figure(figsize=(10, 8))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.chart_frame)

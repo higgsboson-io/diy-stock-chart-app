@@ -23,7 +23,7 @@
 *   **Interactive UI**:
     *   **Crosshair**: Precision mouse tracking with Date, Time, Price, and Volume data.
     *   **FHD/4K Support**: Dynamic font scaling and layout adjustments for different screen resolutions.
-    *   **Floating Info Panel**: Corner-snapping overlay showing detailed fundamentals (P/E, Market Cap, Beta) and Profile data.
+    *   **Floatable Info Panel**: Fully custom, draggable window with corner-snapping, auto-centering, and dynamic width adjustment. Contains detailed fundamentals (P/E, Market Cap, Beta) and Profile data.
     *   **Auto-Refresh**: Background "Always-On" refresh loop for active trading sessions.
 
 [![PayPal - $10](https://img.shields.io/badge/PayPal-$10-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/briannlhotmail/10) [![Donate to Campfire Circle](https://img.shields.io/badge/Donate-Campfire%20Circle-orange?style=for-the-badge&logo=heart&logoColor=white)](https://support.campfirecircle.org/diy/helping-the-kids-to-recover) [![Donate to SickKids](https://img.shields.io/badge/Donate-SickKids-blue?style=for-the-badge&logo=heart&logoColor=white)](https://give.sickkidsfoundation.com/fundraisers/brianli/healthy-kids)
@@ -67,12 +67,15 @@ Volume is overlayed on the main chart (bottom 25%) to allow price action (like t
 | **Moving Avg** | Dropdown menu to toggle specific MAs (5, 20, 50, 60, 100, 120, 200). |
 | **VP Mode** | Select Volume Profile precision: `100 Bins`, `200 Bins`, or `400 Bins`. |
 | **Font** | Adjust UI scale (4-24pt) to optimize for your monitor (FHD vs 4K). |
-| **Info Panel** | Toggle/Position the fundamental data overlay (`Hide`, `Bottom Left`, `Center`, `Right`). |
+| **Info Panel** | Toggle the draggable core fundamental data overlay. Use the "Stock Info" header to drag it anywhere on the screen. |
 
 ### Interactive Features
-*   **Floating Info Panel**: Use the dropdown to snap the panel to any bottom corner. It auto-resizes based on font settings and context (Stock vs ETF).
-    *   *Stocks*: Shows PE, PEG, Earnings Date, Dividend Rate/Yield.
-    *   *ETFs*: Shows Expense Ratio, Net Assets, Beta (3Y), and SEC Yield.
+*   **Floatable Info Panel**: Features a draggable header (displaying Company Name) and a close button.
+    *   **Auto-Center**: Automatically positions itself in the upper-center on first launch.
+    *   **Smart Formatting**: Automatically optimizes number display (removing decimals for >10k prices) and adjusts width for readability.
+    *   **Data**:
+        *   *Stocks*: Shows PE, PEG, Earnings Date, Dividend Rate/Yield.
+        *   *ETFs*: Shows Expense Ratio, Net Assets, Beta (3Y), and SEC Yield.
 *   **Left Click + Drag**: Measure price/time differences (Crosshair active).
 *   **Auto-Refresh**: When viewing the **1D** chart, the data automatically reloads every 60 seconds to capture the latest minute bar.
 

@@ -110,3 +110,19 @@ This project evolved from a script that "drew a picture" to a fully interactive 
 4.  **Dev**: "Fixing Z-Order event handling."
 
 **Result**: A robust, Python-based stock analyzer ready for open source.
+
+### Phase 8: Floating Panel Redux & Refinement
+**User Prompt**: *"I want to convert the info panel to be floatable... use mouse to drag... control on menu bar like a check box."*
+*   **The Pivot Back**: After previously abandoning dragging due to DPI bugs, we revisited it with a robust **Screen-Relative Coordinate** system.
+*   **Implementation**:
+    *   **Controls**: Swapped the "Position Dropdown" for a simple "Show Info" Toolbar Checkbox.
+    *   **Drag Logic**: Implemented `dx = event.x_root - start_x` logic. Using screen-root coordinates solved the "Drifting" issue encountered in Phase 7.
+    *   **Sync**: Clicking the panel's "X" button programmatically unchecks the toolbar box.
+
+**User Prompt**: *"Improve: Auto-center on 1st time... Title should be company name... Narrower width."*
+*   **Refinement 1 (Auto-Center)**: Added logic to calculate `(Screen_W - Panel_W) // 2` on first launch.
+*   **Refinement 2 (Smart Formatting)**: Large stock prices (like **BRK-A** > ) broke the layout. Implemented a `trim_large` formatter to remove decimals for values > 10,000.
+*   **Refinement 3 (Positioning)**: Adjusted "Center" to be "Upper Center" (10% from top) per user preference for better visibility.
+
+---
+
