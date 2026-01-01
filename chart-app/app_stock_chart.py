@@ -66,6 +66,18 @@ class StockChartApp:
         self.auto_refresh = tk.BooleanVar(value=True) # Auto-refresh toggle
         self.vp_mode_var = tk.StringVar(value="100 Bins") # VP Mode
         self.vp_position = tk.StringVar(value="Right") # Left or Right
+        self.show_info = tk.BooleanVar(value=False) # Info Panel Toggle
+        self.stock_info = {} # Store fetched metadata
+        
+        # Panel Positioning Map (Inset to avoid Axis Labels)
+        # User requested "down a bit" -> rely=0.92 (Lower)
+        self.panel_pos_map = {
+            "Bottom Right":  {'relx': 0.94, 'rely': 0.92, 'anchor': 'se'},
+            "Bottom Center": {'relx': 0.50, 'rely': 0.92, 'anchor': 's'},
+            "Bottom Left":   {'relx': 0.06, 'rely': 0.92, 'anchor': 'sw'},
+        }
+        
+        self.info_visibility_var = tk.StringVar(value="Hide Info")
         
         # Crosshair refs
         self.crosshair_lines = {}
@@ -150,13 +162,16 @@ class StockChartApp:
                 self.ticker_entry.config(state="normal")
                 
                 if msg_type == 'data':
-                    df, company_name, interval, prev_close, curr_price = content
+                    df, company_name, interval, prev_close, curr_price, info_dict = content
                     if df is not None and not df.empty:
                         self.raw_df = df
                         self.current_data_interval = interval
                         self.company_name = company_name
                         self.previous_close = prev_close
                         self.current_price = curr_price
+                        self.stock_info = info_dict or {}
+                        self.update_info_panel()
+                        
                         self.root.title(f"DIY - Interactive Stock Chart - {company_name} ({self.current_ticker})")
                         
                         # Initial Process based on current window
@@ -280,17 +295,19 @@ class StockChartApp:
                                 f.unlink()
                             except: pass
                         
-            # Try to fetch Company Name, Previous Close, and Current Price
+            # Try to fetch Company Name, Metadata, etc
             company_name = ticker
             prev_close = 0.0
             curr_price = 0.0
+            info_dict = {}
             try:
                 import yfinance as yf
                 t = yf.Ticker(ticker)
-                company_name = t.info.get('shortName', t.info.get('longName', ticker))
-                prev_close = t.info.get('previousClose', 0.0)
-                # Try 'currentPrice' first (realtime), then 'regularMarketPrice' (delayed/close), then 'price'
-                curr_price = t.info.get('currentPrice') or t.info.get('regularMarketPrice') or 0.0
+                # Fetch FULL info for sidebar
+                info_dict = t.info
+                company_name = info_dict.get('shortName', info_dict.get('longName', ticker))
+                prev_close = info_dict.get('previousClose', 0.0)
+                curr_price = info_dict.get('currentPrice') or info_dict.get('regularMarketPrice') or 0.0
             except Exception as e:
                 logger.warning(f"Failed to fetch metadata: {e}")
 
@@ -298,7 +315,7 @@ class StockChartApp:
             if df is None or df.empty:
                  self.data_queue.put(('error', f"No data found for {ticker}"))
             else:
-                 self.data_queue.put(('data', (df, company_name, interval, prev_close, curr_price)))
+                 self.data_queue.put(('data', (df, company_name, interval, prev_close, curr_price, info_dict)))
                  
         except Exception as e:
             logger.error(f"Download thread error: {e}")
@@ -413,6 +430,245 @@ class StockChartApp:
         self._calculate_indicators(self.history_df)
         self.update_chart()
 
+        
+        # Initial Toggle State
+        self.toggle_info_panel()
+        
+    def _apply_panel_position(self):
+        mode = self.info_visibility_var.get()
+        if mode == "Hide Info" or mode not in self.panel_pos_map:
+             return
+        
+        pos = self.panel_pos_map[mode]
+        
+        # Use relx/rely for DPI-immune positioning
+        # Height is removed to allow Auto-Sizing (Shrink to content)
+        self.info_frame.place(
+            relx=pos['relx'], 
+            rely=pos['rely'], 
+            anchor=pos['anchor'], 
+            width=900
+        )
+        self.info_frame.lift()
+
+    def toggle_info_panel(self, event=None):
+        if self.info_visibility_var.get() != "Hide Info":
+             self._apply_panel_position()
+             self.update_info_panel()
+        else:
+             self.info_frame.place_forget()
+
+    def update_ui_font(self):
+        """Called when font size spinbox changes"""
+        try:
+            size = self.font_size_var.get()
+            # Update Tkinter Global Style
+            import tkinter.font as tkfont
+            default_font = tkfont.nametofont("TkDefaultFont")
+            default_font.configure(size=size)
+            text_font = tkfont.nametofont("TkTextFont")
+            text_font.configure(size=size)
+            self.root.option_add("*Font", default_font)
+        except Exception as e:
+            print(f"Font update error: {e}")
+
+        # Trigger chart update to redraw axis labels
+        self.update_chart()
+        # Trigger info panel update to resize text
+        self.update_info_panel()
+
+    def _fmt(self, num, is_percent=False):
+        if num is None or num == 'None': return "-"
+        try:
+            val = float(num)
+            if is_percent:
+                # Heuristic: If > 1, assume already %, else * 100? 
+                # User report: 0.38 showed as 38% (Correct math, but maybe they meant 0.38%?)
+                # Actually yfinance often returns 0.0038 for 0.38%.
+                # But my checks showed '0.38' for AAPL Div. 
+                # Let's show raw value with % appended if it seems scaled, or *100 if small.
+                # Actually, simplest is just show value + "%" if user thinks 106% is wrong.
+                # Wait, if yield is 0.05 (5%), val*100 = 5.
+                return f"{val*100:.2f}%" if abs(val) < 1.0 else f"{val:.2f}%"
+            
+            abs_val = abs(val)
+            if abs_val >= 1e12: return f"{val/1e12:.2f}T"
+            if abs_val >= 1e9: return f"{val/1e9:.2f}B"
+            if abs_val >= 1e6: return f"{val/1e6:.2f}M"
+            return f"{val:,.2f}"
+        except:
+             return str(num)
+
+    def _add_section(self, parent, title, items):
+        # Dynamic Font Size
+        try:
+            base_size = int(self.font_size_var.get())
+        except:
+            base_size = 8
+            
+        title_font = ('Arial', base_size + 2, 'bold')
+        label_font = ('Arial', base_size)
+        val_font   = ('Arial', base_size, 'bold')
+        
+        # Section Header
+        ttk.Label(parent, text=title, font=title_font, foreground="#333").pack(anchor="w", pady=(10, 5))
+        ttk.Separator(parent, orient="horizontal").pack(fill="x", pady=(0, 10))
+        
+        # Grid (No fixed width labels)
+        frame = ttk.Frame(parent)
+        frame.pack(fill="x")
+        row = 0
+        for label, val in items:
+            # Removed width=15 to allow expansion
+            ttk.Label(frame, text=label, font=label_font).grid(row=row, column=0, sticky="w", padx=(0, 15), pady=2)
+            ttk.Label(frame, text=val, font=val_font).grid(row=row, column=1, sticky="w", pady=2)
+            row += 1
+
+    def update_info_panel(self):
+        # Clear existing content from the Direct Frame (No Canvas)
+        for widget in self.info_content.winfo_children():
+            widget.destroy()
+            
+        if self.info_visibility_var.get() == "Hide Info" or not self.stock_info:
+             if self.info_visibility_var.get() != "Hide Info":
+                 # Use base size for loading text too
+                 base_size = self.font_size_var.get() or 9
+                 ttk.Label(self.info_content, text="Loading Info...", font=('Arial', base_size, 'italic')).pack(pady=10)
+             return
+
+        i = self.stock_info
+        
+        # Determine Type Early for Logic Branching
+        q_type = i.get('quoteType', '').upper()
+
+        # --- Prepare Data Lists ---
+        # 1. Key Stats (Common) -> LEFT Column
+        
+        # Try to find Earnings Date (Moved to Left)
+        earn_ts = i.get('earningsTimestamp') or i.get('earningsTimestampStart')
+        earn_str = "-"
+        if earn_ts:
+             earn_str = datetime.fromtimestamp(earn_ts).strftime('%Y-%m-%d')
+             
+        # Dividend Format: 1.04 (0.38%)
+        # Dividend Format
+        div_str = "-"
+        div_rate = i.get('dividendRate') or i.get('trailingAnnualDividendRate')
+        price = i.get('currentPrice') or i.get('regularMarketPrice')
+        
+        # ETF Special Logic: Use 'yield' field (Distribution/SEC Yield) to match Yahoo
+        etf_yield = i.get('yield')
+        if q_type == 'ETF' and etf_yield is not None:
+             # etf_yield is typically decimal (0.0106 -> 1.06%)
+             rate_str = f"{div_rate}" if div_rate else ""
+             if rate_str:
+                 div_str = f"{rate_str} ({etf_yield * 100:.2f}%)"
+             else:
+                 div_str = f"{etf_yield * 100:.2f}%"
+
+        elif div_rate and price and price > 0:
+             # Standard Stock Calculation (Rate / Price)
+             calc_yield = (div_rate / price) * 100
+             div_str = f"{div_rate} ({calc_yield:.2f}%)"
+        else:
+             # Fallback
+             raw_yield = i.get('dividendYield')
+             if raw_yield:
+                 if raw_yield > 0.5: 
+                     div_str = f"{raw_yield:.2f}%"
+                 else:
+                     div_str = f"{self._fmt(raw_yield, True)}"
+        
+        # Left Data (Common)
+        # Beta fallback for ETF if handled in Left Column? 
+        # User requested Beta in RIGHT column for ETF (implied by missing list), 
+        # but standard layout has Beta in LEFT. 
+        # I'll keep Beta in Left for Stocks, and use the specific ETF logic in Right?
+        # Actually proper Beta for ETF is usually 3Y. 
+        # Let's show Beta in LEFT for both, but fetch correct key.
+        
+        beta_key = 'beta3Year' if q_type == 'ETF' else 'beta'
+        beta_val = i.get(beta_key) or i.get('beta')
+        left_data = [
+            ("52W Range", f"{self._fmt(i.get('fiftyTwoWeekLow'))} - {self._fmt(i.get('fiftyTwoWeekHigh'))}"),
+            ("Avg Vol", self._fmt(i.get('averageVolume'))),
+            ("Beta", self._fmt(beta_val)), # Uses 3Y for ETF
+            ("Fwd Div&Yield", div_str),
+            ("Ex-Div Date", datetime.fromtimestamp(i.get('exDividendDate', 0)).strftime('%Y-%m-%d') if i.get('exDividendDate') else "-"),
+            ("Target Est", self._fmt(i.get('targetMeanPrice'))),
+            ("Earnings Date", earn_str)
+        ]
+        
+        # 2. Specifics -> RIGHT Column
+        right_title = "Valuation"
+        right_data = []
+        
+        
+        if q_type == 'ETF':
+            right_title = "ETF Profile"
+            # ETF Specific Keys
+            beta_val = i.get('beta3Year') or i.get('beta')
+            
+            # Expense Ratio logic
+            # Raw value for SPY `netExpenseRatio` is 0.0945 (meaning 0.0945%)
+            # Do NOT multiply by 100.
+            exp_ratio = i.get('netExpenseRatio') or i.get('annualReportExpenseRatio') or i.get('expenseRatio')
+            exp_str = "-"
+            if exp_ratio is not None:
+                exp_str = f"{exp_ratio}%"
+
+            # PE for ETF (often exists as trailingPE)
+            pe_val = i.get('trailingPE')
+            
+            right_data = [
+                ("Net Assets", self._fmt(i.get('totalAssets'))),
+                ("NAV", self._fmt(i.get('navPrice'))),
+                ("Expense Ratio", exp_str),
+                ("PE (TTM)", self._fmt(pe_val)),
+                ("Beta (3Y)", self._fmt(beta_val))
+            ]
+        else: # Stock
+             right_title = "Valuation & Earnings"
+             
+             # Try to find Earnings Date
+             # 'earningsTimestamp' is widely used, or 'earningsTimestampStart'
+             earn_ts = i.get('earningsTimestamp') or i.get('earningsTimestampStart')
+             earn_str = "-"
+             if earn_ts:
+                 earn_str = datetime.fromtimestamp(earn_ts).strftime('%Y-%m-%d')
+             
+             
+             right_data = [
+                ("Market Cap", self._fmt(i.get('marketCap'))),
+                ("Trailing PE", self._fmt(i.get('trailingPE'))),
+                ("Forward PE", self._fmt(i.get('forwardPE'))),
+                ("PEG Ratio", self._fmt(i.get('pegRatio') or i.get('trailingPegRatio'))),
+                ("Price/Book", self._fmt(i.get('priceToBook'))),
+                ("Price/Sales", self._fmt(i.get('priceToSalesTrailing12Months'))),
+                ("EV/EBITDA", self._fmt(i.get('enterpriseToEbitda'))),
+             ]
+
+        # --- Render Layout (2 Columns via Grid) ---
+        col_frame = ttk.Frame(self.info_content)
+        col_frame.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # Configure Grid Weights for 50/50 Split
+        col_frame.columnconfigure(0, weight=1, uniform="group1")
+        col_frame.columnconfigure(1, weight=1, uniform="group1")
+        
+        # Left Side
+        left_frame = ttk.Frame(col_frame)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        self._add_section(left_frame, "Key Statistics", left_data)
+        
+        # Right Side
+        right_frame = ttk.Frame(col_frame)
+        right_frame.grid(row=0, column=1, sticky="nsew")
+        self._add_section(right_frame, right_title, right_data)
+        
+        # Re-apply position to update height if font changed
+        self._apply_panel_position()
+
     def _setup_ui(self):
         # Top Control Panel
         control_frame = ttk.Frame(self.root, padding="5")
@@ -441,6 +697,7 @@ class StockChartApp:
         ttk.Label(control_frame, text="| Font:").pack(side=tk.LEFT, padx=10)
         font_spin = ttk.Spinbox(control_frame, from_=4, to=24, textvariable=self.font_size_var, width=3, command=self.update_ui_font)
         font_spin.pack(side=tk.LEFT, padx=5)
+        font_spin.bind('<KeyRelease>', lambda e: self.update_ui_font()) # Bind typing too
             
         # Indicators Checkboxes
         indicator_frame = ttk.Frame(self.root, padding="5")
@@ -481,10 +738,23 @@ class StockChartApp:
         vp_mode_cb.pack(side=tk.LEFT)
         vp_mode_cb.bind("<<ComboboxSelected>>", lambda e: self.update_chart())
         
-        
-        # Chart Area
+        # Info Toggle (Combobox)
+        info_cb = ttk.Combobox(indicator_frame, textvariable=self.info_visibility_var, 
+                               values=["Hide Info", "Bottom Left", "Bottom Center", "Bottom Right"], 
+                               width=15, state="readonly")
+        info_cb.pack(side=tk.RIGHT, padx=10)
+        info_cb.bind("<<ComboboxSelected>>", self.toggle_info_panel)
+        # Chart Area (Standard Pack)
         self.chart_frame = ttk.Frame(self.root)
         self.chart_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        
+        # Floating Info Frame (Child of ROOT)
+        self.info_frame = ttk.Frame(self.root, relief="raised", borderwidth=2)
+        
+
+        # Content Frame (Directly inside Info Frame - NO SCROLLBAR)
+        self.info_content = ttk.Frame(self.info_frame, padding=10)
+        self.info_content.pack(fill="both", expand=True)
         
         self.fig = plt.figure(figsize=(10, 8))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.chart_frame)
@@ -635,23 +905,6 @@ class StockChartApp:
             ax.grid(True, linestyle='--', alpha=0.3)
 
 
-    def update_ui_font(self):
-        """Updates both Tkinter UI font and Matplotlib Chart font."""
-        try:
-            size = self.font_size_var.get()
-            # Update Tkinter Global Style
-            default_font = tk.font.nametofont("TkDefaultFont")
-            default_font.configure(size=size)
-            
-            text_font = tk.font.nametofont("TkTextFont")
-            text_font.configure(size=size)
-            
-            # Force update on widgets
-            self.root.option_add("*Font", default_font)
-        except Exception as e:
-            print(f"Font update error: {e}")
-            
-        self.update_chart()
 
     def update_chart(self, *args):
         if self.history_df.empty:
