@@ -68,7 +68,7 @@ class StockChartApp:
         self.vp_position = tk.StringVar(value="Right") # Left or Right
         self.show_info = tk.BooleanVar(value=False) # Info Panel Toggle
         self.stock_info = {} # Store fetched metadata
-        self.info_last_pos = {'x': 40, 'y': 40} # Remember last drag position
+        self.info_last_pos = None # Remember last drag position (set on first place)
         self._drag_offset = {'x': 0, 'y': 0}
         
         # Crosshair refs
@@ -140,6 +140,9 @@ class StockChartApp:
             self.go_btn.config(state="disabled")
             self.ticker_entry.config(state="disabled")
             self.root.update_idletasks() # Force UI update
+            # Hide info panel during refresh to avoid transient header/close button flash
+            if self.show_info.get():
+                self.info_frame.place_forget()
         
         # Start background thread
         threading.Thread(target=self._download_worker, args=(ticker, interval), daemon=True).start()
@@ -430,8 +433,10 @@ class StockChartApp:
         try:
             chart = self.chart_frame
             chart.update_idletasks()
-            chart_x = chart.winfo_rootx()
-            chart_y = chart.winfo_rooty()
+            root_x = self.root.winfo_rootx()
+            root_y = self.root.winfo_rooty()
+            chart_x = chart.winfo_rootx() - root_x
+            chart_y = chart.winfo_rooty() - root_y
             chart_w = chart.winfo_width()
             chart_h = chart.winfo_height()
 
@@ -448,13 +453,62 @@ class StockChartApp:
     def _place_info_frame(self, x=None, y=None):
         """Place the info frame at a stored or provided position."""
         if x is None or y is None:
-            x = self.info_last_pos.get('x', 40)
-            y = self.info_last_pos.get('y', 40)
+            if self.info_last_pos:
+                x = self.info_last_pos.get('x', 40)
+                y = self.info_last_pos.get('y', 40)
+            else:
+                # First placement: align panel's top-left to the lower-right of the MA legend if possible
+                pos = self._legend_anchor_position()
+                if pos:
+                    x, y = pos
+                else:
+                    # Fallback to centered on chart
+                    try:
+                        self.chart_frame.update_idletasks()
+                        self.info_frame.update_idletasks()
+                        root_x = self.root.winfo_rootx()
+                        root_y = self.root.winfo_rooty()
+                        chart_x = self.chart_frame.winfo_rootx() - root_x
+                        chart_y = self.chart_frame.winfo_rooty() - root_y
+                        chart_w = self.chart_frame.winfo_width()
+                        chart_h = self.chart_frame.winfo_height()
+                        panel_w = self.info_frame.winfo_width() or 300
+                        panel_h = self.info_frame.winfo_height() or 200
+                        x = chart_x + (chart_w - panel_w) / 2
+                        y = chart_y + (chart_h - panel_h) / 2
+                    except Exception:
+                        x, y = 40, 40
 
         x, y = self._clamp_info_position(x, y)
         self.info_last_pos = {'x': x, 'y': y}
         self.info_frame.place(x=x, y=y)
         self.info_frame.lift()
+
+    def _legend_anchor_position(self):
+        """Return (x, y) in root coords for panel top-left aligned to legend lower-right."""
+        try:
+            if not getattr(self, 'price_legend', None):
+                return None
+            # Ensure renderer is available
+            self.canvas.draw_idle()
+            renderer = self.canvas.get_renderer()
+            if renderer is None:
+                self.canvas.draw()
+                renderer = self.canvas.get_renderer()
+            bbox = self.price_legend.get_window_extent(renderer=renderer)
+            widget = self.canvas.get_tk_widget()
+            widget.update_idletasks()
+            widget_x = widget.winfo_rootx()
+            widget_y = widget.winfo_rooty()
+            widget_h = widget.winfo_height()
+
+            pad = 8
+            x = widget_x + bbox.x1 + pad
+            # bbox.y0 is bottom in display coords; convert to Tk top-down
+            y = widget_y + (widget_h - bbox.y0) + pad
+            return x, y
+        except Exception:
+            return None
 
     def _close_info_panel(self):
         self.show_info.set(False)
@@ -472,8 +526,11 @@ class StockChartApp:
         self._drag_offset['y'] = event.y
 
     def _drag_info(self, event):
-        x = event.x_root - self._drag_offset['x']
-        y = event.y_root - self._drag_offset['y']
+        # Convert screen coords to root-relative coords for consistent placing
+        root_x = self.root.winfo_rootx()
+        root_y = self.root.winfo_rooty()
+        x = event.x_root - root_x - self._drag_offset['x']
+        y = event.y_root - root_y - self._drag_offset['y']
         x, y = self._clamp_info_position(x, y)
         self.info_last_pos = {'x': x, 'y': y}
         self.info_frame.place(x=x, y=y)
@@ -557,6 +614,12 @@ class StockChartApp:
              return
 
         i = self.stock_info
+        # Update title with company/ETF name if available
+        try:
+            name = i.get('shortName') or i.get('longName') or getattr(self, 'company_name', '') or "Info"
+            self.info_title_lbl.config(text=name)
+        except Exception:
+            pass
         
         # Determine Type Early for Logic Branching
         q_type = i.get('quoteType', '').upper()
@@ -770,12 +833,12 @@ class StockChartApp:
         self.info_frame = ttk.Frame(self.root, relief="raised", borderwidth=2)
         header = ttk.Frame(self.info_frame)
         header.pack(fill="x")
-        title_lbl = ttk.Label(header, text="Info", padding=(8, 4))
-        title_lbl.pack(side=tk.LEFT)
+        self.info_title_lbl = ttk.Label(header, text="Info", padding=(8, 4))
+        self.info_title_lbl.pack(side=tk.LEFT)
         close_btn = ttk.Button(header, text="×", width=2, command=self._close_info_panel)
         close_btn.pack(side=tk.RIGHT, padx=4, pady=2)
         # Bind drag handlers on header + title for ease
-        for widget in (header, title_lbl):
+        for widget in (header, self.info_title_lbl):
             widget.bind("<ButtonPress-1>", self._start_drag_info)
             widget.bind("<B1-Motion>", self._drag_info)
 
@@ -1080,7 +1143,9 @@ class StockChartApp:
             
         ax_price.grid(True, alpha=0.3)
         if any([v.get() for v in [self.show_ma5, self.show_ma20, self.show_ma50, self.show_ma60, self.show_ma100, self.show_ma120, self.show_ma200]]):
-             ax_price.legend(loc='upper left', prop={'size': base_font_size},  bbox_to_anchor=(0.02, 0.98), ncol=2)
+             self.price_legend = ax_price.legend(loc='upper left', prop={'size': base_font_size},  bbox_to_anchor=(0.02, 0.98), ncol=2)
+        else:
+            self.price_legend = None
 
         # Calculate Price Limits explicitly to avoid 0 artefacts
         y_min = df['low'].min()

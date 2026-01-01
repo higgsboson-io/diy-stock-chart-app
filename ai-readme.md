@@ -110,3 +110,26 @@ This project evolved from a script that "drew a picture" to a fully interactive 
 4.  **Dev**: "Fixing Z-Order event handling."
 
 **Result**: A robust, Python-based stock analyzer ready for open source.
+
+---
+
+## Trace Log – Codex Plugin (after Gemini 3.0 Pro)
+*Previous work above was done with Gemini 3.0 Pro. The following changes were implemented with the Codex plugin in this session.*
+
+**Date**: Dec 31, 2025  
+**Agent**: Codex plugin  
+
+**User Goals**
+- Preserve all existing info panel content.
+- Make the panel floatable/drag-to-move with a checkbox to show/hide and a close button that syncs the toggle.
+- Fix drag offset issues when the window is not maximized.
+- Update README to reflect the floating panel behavior.
+
+**Key Changes**
+- Replaced the positioning dropdown with a checkbox and header `×`; closing also unchecks.
+- Added drag handlers on the info panel header; store/restore last position; clamp within the chart area; corrected coordinate math for restored windows to remove pointer gap.
+- Kept the info content layout intact (Key Stats left; Valuation or ETF Profile right).
+- Updated README to describe the floatable panel and the new control behavior.
+
+**Notes**
+- The panel remains a Tk overlay (not a separate OS window). Dragging now works consistently in maximized and restored states after the coordinate fixes.
