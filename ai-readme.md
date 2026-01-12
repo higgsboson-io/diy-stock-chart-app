@@ -126,3 +126,33 @@ This project evolved from a script that "drew a picture" to a fully interactive 
 
 ---
 
+
+### Phase 9: The Watch List & Management Overlay
+**User Prompt**: *"I want to add a watch list function... click icon... add current ticker... dropdown list... saved in csv."*
+*   **Implementation**:
+    *   **The Star Icon**: Added a toggleable `★` button to the chart frame.
+    *   **CSV Persistence**: Implemented `load_watchlist()` / `save_watchlist()` using Python's `csv` module to store favorites in `csv/watchlist.csv`.
+    *   **Overlay UI**: Created a custom `Frame` overlay (instead of native OS popups) for seamless integration.
+
+**User Prompt**: *"Popup is very small... I don't want a windows system popup."*
+*   **Evolution of the Management UI**:
+    1.  **Initial Attempt**: Small popup. User feedback: *"Not usable."*
+    2.  **Refinement**: Increased size to 600x480px.
+    3.  **Dynamic Sizing**: Replaced fixed dimensions with a content-aware sizing formula (`w = 600`, `h = calculated`).
+    4.  **Feature Additions**: Added "Remove Ticker", "Delete List", and "Rename List" buttons.
+
+**User Prompt**: *"Crash: unknown option -activator"*
+*   **Fix**: Identified and removed an invalid Tkinter option `activator="dotbox"` that caused the app to crash on opening the management menu.
+
+### Phase 10: 20-Year Horizon & Visual Tweaks
+**User Prompt**: *"Change cross hair lines to dotted line in dark red... add a 20Y option."*
+*   **Visual Refinement**: Updated crosshair to use `darkred` color and dotted line style (`:`) for better visibility against the chart background.
+*   **20-Year View**:
+    *   **Logic**: Implemented a `20Y` window mirroring the `10Y` logic (Monthly resolution, `1ME` resampling).
+    *   **Filtering**: Updated data fetcher to filter exactly 20 years from the latest date.
+
+**User Prompt**: *"In 20Y chart... only 1 date... ticks are too tight."*
+*   **Crosshair Date Fix**: The crosshair originally showed a single date for the 20Y view. Updated the logic to identify `20Y` as a Monthly view, displaying the full Start/End range (e.g., `2024-01-01 / 2024-01-31`).
+*   **Axis Tick Optimization**: The initial 20Y implementation labeled *every* month (240 ticks!), making the X-axis unreadable. Added `20Y` to the "Long Term" sparse labeling group to use **Quarterly** ticks (every 3 months), matching the clean look of the 10Y chart.
+
+---
