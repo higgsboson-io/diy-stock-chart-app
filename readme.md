@@ -23,7 +23,7 @@
     *   **Overlay Volume**: Volume bars displayed directly on the price chart to maximize vertical screen real estate.
     *   **MACD & RSI**: Dedicated sub-panels with dynamic resizing.
 *   **Interactive UI**:
-    *   **Crosshair**: Precision mouse tracking with Date, Time, Price, and Volume data.
+    *   **Crosshair**: Precision mouse tracking with Date, Open/High/Low/Close Prices, and Volume data.
     *   **FHD/4K Support**: Dynamic font scaling and layout adjustments for different screen resolutions.
     *   **Floatable Info Panel**: Fully custom, draggable window with corner-snapping, auto-centering, and dynamic width adjustment. Contains detailed fundamentals (P/E, Market Cap, Beta) and Profile data.
     *   **Watch List Management**: Star tickers to Favorites, create custom lists, and manage them via an in-app overlay.
@@ -69,8 +69,8 @@ Volume is overlayed on the main chart (bottom 25%) to allow price action (like t
 | :--- | :--- |
 | **Ticker** | Enter symbol (e.g., `SPY`, `NVDA`) and press **Enter** or **Go**. |
 | **Time Window** | Select viewing duration: `1D` (Real-time), `1WK`, `1M`, `3M`, `6M`, `YTD`, `1Y`, `2Y`, `3Y`, `5Y`, `10Y`, `20Y`. |
-| **Indicators** | Toggle panels: `Vol`, `MACD`, `RSI`. **Note**: Volume is an overlay on the main chart. |
-| **Moving Avg** | Dropdown menu to toggle specific MAs (5, 20, 50, 60, 100, 120, 200). |
+| **Indicators** | Toggle panels: `Legend`, `Vol`, `MACD`, `RSI`. **Note**: Volume is an overlay on the main chart. |
+| **Moving Avg** | Dropdown menu to toggle specific MAs (Color coded: Cyan, Green, Orange, Blue, Purple, Magenta, Red). |
 | **VP Mode** | Select Volume Profile precision: `100 Bins`, `200 Bins`, or `400 Bins`. |
 | **Font** | Adjust UI scale (4-24pt) to optimize for your monitor (FHD vs 4K). |
 | **Info Panel** | Toggle the draggable core fundamental data overlay. Use the "Stock Info" header to drag it anywhere on the screen. |
@@ -84,7 +84,8 @@ Volume is overlayed on the main chart (bottom 25%) to allow price action (like t
         *   *Stocks*: Shows PE, PEG, Earnings Date, Dividend Rate/Yield.
         *   *ETFs*: Shows Expense Ratio, Net Assets, Beta (3Y), and SEC Yield.
 *   **Watch List & Overlay**: 
-    *   **Quick Add**: Click the `★` button to toggle the current ticker in the active watch list.
+    *   **Quick Add/Remove**: Click the `★` button to add. If already watched, clicking the filled star **instantly removes** it from ALL lists.
+    *   **Multi-Select Overlay**: When adding, use the list box to select multiple groups at once (Ctrl+Click).
     *   **Management Overlay**: A custom in-app popup to Create, Rename, or Delete lists and manage saved tickers.
     *   **CSV Persistence**: All data is saved locally to `csv/watchlist.csv` for portability.
 *   **Left Click + Drag**: Measure price/time differences (Crosshair active).
@@ -184,6 +185,7 @@ The application uses Matplotlib's `GridSpec` with a **Weighted Ratio System** to
     ```bash
     python app_stock_chart.py
     ```
+    *Note: The application has been refactored into modular components (`app_stock_chart.py`, `stock_util.py`, `chart_drawing.py`, `watchlist.py`, `info_panel.py`). Run the main `app_stock_chart.py` script to start.*
 
 ---
 - **License**: MIT Open Source

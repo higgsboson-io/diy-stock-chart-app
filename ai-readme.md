@@ -3,11 +3,16 @@
 This document chronicles the step-by-step evolution of the **DIY Stock Chart** application. It serves as a historical record of how a simple CLI script was transformed into a professional-grade GUI tool through iterative "Vibe Coding" (Prompt -> Error -> Fix -> Refine).
 
 **Project Stats:**
-*   **Timeline**: Dec 25 - Dec 29 (4 Days Elapsed)
-*   **Active Vibe Coding Time**: ~8 Hours
-    *   *Session 1*: ~1 Hr (Dec 25)
-    *   *Session 2*: ~1.5 Hrs (Dec 26)
-    *   *Session 3*: ~5.5 Hrs (Dec 29)
+*   **Timeline**: Dec 25 - Jan 12 (19 Days Elapsed)
+*   **Active Vibe Coding Time**: ~26 Hours
+    *   *Session 1*: ~2.0 Hrs (Dec 25) - "Genesis"
+    *   *Session 2*: ~2.5 Hrs (Dec 26) - "Core Logic"
+    *   *Session 3*: ~5.5 Hrs (Dec 27) - "Volume & Grid"
+    *   *Session 4*: ~4.0 Hrs (Dec 29) - "Polishing"
+    *   *Session 5*: ~2.0 Hrs (Dec 30) - "Publishing"
+    *   *Session 6*: ~4.0 Hrs (Dec 31) - "Floating Info Panel"
+    *   *Session 7*: ~2.0 Hrs (Jan 11) - "Watch List"
+    *   *Session 8*: ~4.0 Hrs (Jan 12) - "Refactoring & Visuals"
 
 ---
 
@@ -102,15 +107,6 @@ This document chronicles the step-by-step evolution of the **DIY Stock Chart** a
 
 ---
 
-## 🏆 Summary
-This project evolved from a script that "drew a picture" to a fully interactive financial workspace. The key to success was the **Iterative Feedback Loop**:
-1.  **User**: "This looks wrong." (e.g., Weekends showing as gaps)
-2.  **Dev**: "Here's a fix using Resampling."
-3.  **User**: "Now the crosshair is broken."
-4.  **Dev**: "Fixing Z-Order event handling."
-
-**Result**: A robust, Python-based stock analyzer ready for open source.
-
 ### Phase 8: Floating Panel Redux & Refinement
 **User Prompt**: *"I want to convert the info panel to be floatable... use mouse to drag... control on menu bar like a check box."*
 *   **The Pivot Back**: After previously abandoning dragging due to DPI bugs, we revisited it with a robust **Screen-Relative Coordinate** system.
@@ -125,7 +121,6 @@ This project evolved from a script that "drew a picture" to a fully interactive 
 *   **Refinement 3 (Positioning)**: Adjusted "Center" to be "Upper Center" (10% from top) per user preference for better visibility.
 
 ---
-
 
 ### Phase 9: The Watch List & Management Overlay
 **User Prompt**: *"I want to add a watch list function... click icon... add current ticker... dropdown list... saved in csv."*
@@ -155,4 +150,35 @@ This project evolved from a script that "drew a picture" to a fully interactive 
 *   **Crosshair Date Fix**: The crosshair originally showed a single date for the 20Y view. Updated the logic to identify `20Y` as a Monthly view, displaying the full Start/End range (e.g., `2024-01-01 / 2024-01-31`).
 *   **Axis Tick Optimization**: The initial 20Y implementation labeled *every* month (240 ticks!), making the X-axis unreadable. Added `20Y` to the "Long Term" sparse labeling group to use **Quarterly** ticks (every 3 months), matching the clean look of the 10Y chart.
 
+### Phase 11: Watch List Perfection
+**User Prompt**: *"Separate 'Quick Remove' and 'Multi-Select Add' features."*
+*   **Quick Toggle**: Changed logic for the Star button.
+    *   **Previous**: Clicking a filled star allowed re-adding/moving.
+    *   **New**: Clicking a filled star **instantly removes** the ticker from *all* watch lists. This streamlines the common workflow of "checking off" a watched item.
+*   **Multi-Select Overlay**:
+    *   **Problem**: Dropdown menu required multiple clicks/re-opens to add a ticker to multiple groups.
+    *   **Solution**: Replaced `Combobox` with a multi-select `Listbox`. Users can now Ctrl+Click to select multiple target lists in a single action.
+
+---
+
+### Phase 12: The Great Refactoring
+**User Prompt**: *"The app_stock_chart.py is monolithic. many functions are in one file. I want to re-org the file into smaller files... ZERO logic change."*
+*   **Analysis**: The main file had grown to over 2000 lines, mixing UI, data fetching, math, and plotting logic.
+*   **Modularization Strategy**:
+    *   **`stock_util.py`**: Extracted all `yfinance` interaction, caching, dataframe resampling, and indicator math (`finta`).
+    *   **`chart_drawing.py`**: Encapsulated the complex Matplotlib logic (Figure, Canvas, Axes, Events, Crosshair).
+    *   **`watchlist.py`**: Consolidated the CSV management (`WatchListManager`) and the UI Overlays (`WatchListUI`) into a single cohesive module.
+    *   **`info_panel.py`**: Isolated the floating "Stock Info" panel logic.
+    *   **`app_stock_chart.py`**: Reduced to a clean skeleton that initializes the UI and delegates work to the new modules.
+*   **Outcome**: The code is now significantly easier to maintain and extend, with clear separation of concerns.
+
+### Phase 13: Enhanced Crosshair & Visual Tuning
+**User Prompt**: *"I want to have the 2nd line and 3rd line to show O/C/H/L price... upper left corner legend is blocking... switch MA colors..."*
+*   **OHLC Crosshair**: 
+    *   Modified `chart_drawing.py` to fetch row data using `df.loc[current_date]`. This ensures the displayed Open/High/Low/Close matches the specific bar under the cursor (Time-Index Lookup) regardless of zoom level.
+    *   Updated the tooltip to show a 3-line summary (Date / Open-Close / High-Low) aligned to the top edge of the chart.
+*   **Legend Toggle**: Added a "Legend" checkbox to the toolbar. Users can now hide the top-left MA labels to prevent them from obscuring the new crosshair text.
+*   **Visual Polish**:
+    *   **MA Customization**: Switched MA 50/100 colors and updated MA 60 to Blue/MA 5 to Cyan based on user preference.
+    *   **Volume Profile**: Changed default bin count from 100 to 200 for better initial precision.
 ---
