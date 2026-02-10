@@ -8,12 +8,25 @@
 - A interactive stock technical analysis application built with Python (`tkinter` + `matplotlib`). This project demonstrates how to build a simplistic stock charting tool from scratch, featuring Yahoo FInance free market data, advanced technical indicators, volume profiling, and a responsive custom UI.
 - This is a 0-coding project and every line of code is done by Anti Gravity with Gemini 3.0 pro.
 - Refer to the [AI readme](ai-readme.md) for more details on the prompt jurney.
+
+> [!WARNING]
+> **Data Quality & Trading Risk**: This application relies on the unofficial, free Yahoo Finance API (`yfinance`). Data may be delayed, contain gaps (especially for intraday or global assets), or include erroneous ticks. This tool is for **educational/research purposes only** and should **NOT** be used for real-time trading or financial decisions. The developers are not responsible for any financial losses.
+
 ## 🚀 Key Features
 
 *   **Simplicity**: Simple GUI app without any need of web hosting or DB. All data are downloaded ad-hoc and maintained locally as CSVs. Minutes data are retrieved and kept in memory without writing too much junk on disk.
 *   **Easy-use views**: For non-pro use simple most commonly used chart and indicators. **Price Volume** is rarely seen for free analysis tools and web apps.
+*   **Chart Types Toggle**: Switch instantly between **Candlestick** (OHLC) and **Line** (Close Price) visualization modes.
 *   **1-minute Data**: Fetches live market data (1-minute resolution) for intraday analysis using `yfinance`.
+*   **Global Assets Support**: Specialized 24/7 "Calendar Day" view for Crypto, Forex, and Futures (e.g., `BTC-USD`, `CAD=X`), bypassing standard market hours.
+*   **Smart Smoothing**: Visual "Gap Filling" for illiquid stocks—automatically draws flat dashes for missing minutes to ensure chart continuity without altering raw data.
+*   **Extended Hours Support**:
+    *   **Pre/Post Market Data**: View full trading sessions (04:00 - 20:00) with a toggleable checkbox.
+    *   **Visual Shading**: Distinct background shading for pre-market and post-market hours.
 *   **Gap-less Time Axis**: Custom rendering engine that eliminates non-trading hours and weekends, ensuring a continuous, professional candlestick view.
+*   **Smart "Breathing" Axis**:
+    *   **Collision Resolution**: Intelligent labeling engine that backtracks to prevent text overlapping ("jamming") on any timeframe.
+    *   **Context Aware**: Automatically adds Year/Month labels when context changes (e.g. `Jan '25`) and filters density for long-term views (3Y/5Y).
 *   **Smart Resampling**: 
     *   **10-Minute Weekly View**: High-precision weekly charts derived from 5-minute data.
     *   **Trading-Day Aggregation**: Custom 2D/3D bars that strictly respect trading days (ignoring weekends/holidays).
@@ -60,6 +73,11 @@ Volume is overlayed on the main chart (bottom 25%) to allow price action (like t
 
 ![3-Month View](chart-screen/3-month.png)
 
+### 4. Line Chart Visualization
+A simplified view focusing purely on the Closing Price. This mode is excellent for spotting long-term trends and "big picture" moves without the noise of daily volatility.
+
+![Line Chart Mode](chart-screen/line-chart.png)
+
 ---
 
 ## 🛠 Operational Manual
@@ -69,6 +87,8 @@ Volume is overlayed on the main chart (bottom 25%) to allow price action (like t
 | :--- | :--- |
 | **Ticker** | Enter symbol (e.g., `SPY`, `NVDA`) and press **Enter** or **Go**. |
 | **Time Window** | Select viewing duration: `1D` (Real-time), `1WK`, `1M`, `3M`, `6M`, `YTD`, `1Y`, `2Y`, `3Y`, `5Y`, `10Y`, `20Y`. |
+| **Chart Type** | Toggle between **Candles** (OHLC) and **Line** (Close Price) visualization. |
+| **Pre/Post** | Toggle extended hours data (04:00 - 20:00). *Only available for 1D chart.* |
 | **Indicators** | Toggle panels: `Legend`, `Vol`, `MACD`, `RSI`. **Note**: Volume is an overlay on the main chart. |
 | **Moving Avg** | Dropdown menu to toggle specific MAs (Color coded: Cyan, Green, Orange, Blue, Purple, Magenta, Red). |
 | **VP Mode** | Select Volume Profile precision: `100 Bins`, `200 Bins`, or `400 Bins`. |
@@ -163,6 +183,45 @@ The application uses Matplotlib's `GridSpec` with a **Weighted Ratio System** to
     ratios = [price_weight] + [other_height] * num_others
     ```
 *   **Benefit**: Users can toggle side panels on/off, and the chart seamlessly re-flows to use 100% of the available pixels.
+
+### 6. Sequential Outlier Filter (Data Integrity)
+Extended hours data from public sources often contains erroneous ticks (e.g., price dropping from $450 to $420 and back in 1 minute). To solve this without deleting valid volatility, we implemented a **Sequential Baseline Filter**:
+*   **Logic**: It iterates through the dataset minute-by-minute.
+*   **Baseline**: It uses the *previous minute's Cleaned Close* as the "Truth".
+*   **Thresholds**: Tight 1% deviation for Pre/Post market (thin liquidity), 3% for regular market.
+*   **Correction**: If a tick deviates beyond the threshold, it is capped at the baseline price. This effectively "flattens" bad ticks while preserving the continuity of the chart.
+
+### 7. Incremental Data Caching (Smart Append)
+To eliminate redundant downloads and speed up startup times, the app implements a persistent **Incremental Cache**:
+*   **Storage**: Time-series data is stored in `csv/{Ticker}_{Interval}_{Date}.csv`.
+*   **Initialization**: On startup, it checks if a cache file exists.
+*   **Delta Fetch**: instead of re-downloading the entire history (which is slow and throttled), it only requests data starting from the *Last Cached Date*.
+    *   **Merge Logic**: The new "Delta" data is merged with the "Master" cache, deduplicating any overlapping timestamps.
+    *   **Split Detection**: If `yfinance` reports a Stock Split in the delta, the cache is invalidated and a full history is re-downloaded to ensure price continuity.
+*   **Intraday Refresh**: For Minute-level charts, the system intelligently forces updates for "Today's" data even if the file was modified minutes ago, ensuring live charts are always current.
+
+### 8. Metadata Optimization ("Sidecar" Files)
+Static company data (Sector, Industry, Name) is expensive to fetch (taking ~2 seconds per call).
+*   **Solution**: We cache this metadata in lightweight `csv/{Ticker}_info.csv` sidecar files.
+*   **Validity**: This data is considered valid for 30 days. The app reads from disk instantly (0ms) instead of hitting the API, making chart switching instantaneous.
+
+### 9. Smart Resampling Engine (Current Period Capture)
+Standard resampling libraries (like Pandas) often default to "Period End" labeling, which causes the current incomplete week or month to be dropped until it finishes.
+*   **The Problem**: A 10-Year chart using `1ME` (Month End) would hide the current month's candle until the 31st.
+*   **The Solution**: We implemented a **Start-of-Period** bucketing strategy.
+    *   **Logic**: `resample('MS')` (Month Start) and `resample('W-MON')` (Week Start).
+    *   **Effect**: Data for *today* (e.g., Jan 26) is bucketed into the "Jan 01" period immediately. This ensures the "Live" candle is always visible on long-term charts, updating dynamically as new days are appended.
+    *   **Intraday Fix**: For 10-minute bars, we explicitly use `closed='left'` to force the inclusion of the forming bar (e.g., 11:20-11:30) even if it only has 7 minutes of data.
+
+### 10. Algorithm: Market Calendar Gap Analyzer
+**File**: `app/debug_price.py` (Standalone Tool)
+
+A specialized heuristic analyzer to distinguish between "Missing Data" and "Normal Life".
+*   **Problem**: Raw API data often has gaps (weekends, holidays). A dumb check `if (Time[i] - Time[i-1] > 1h)` would flag every single night as an error.
+*   **Solution**: We filter gaps based on **Market Context**.
+    *   If a gap starts at **16:00** and ends at **09:30**, it is ignored (Overnight).
+    *   If a gap is > 2 days but starts Fri 16:00 and ends Mon 09:30, it is ignored (Weekend).
+    *   Any gap that fails these filters (e.g. Tuesday 10:30 -> Tuesday 13:00) is flagged as **ABNORMAL**.
 
 ---
 

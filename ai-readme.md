@@ -3,9 +3,9 @@
 This document chronicles the step-by-step evolution of the **DIY Stock Chart** application. It serves as a historical record of how a simple CLI script was transformed into a professional-grade GUI tool through iterative "Vibe Coding" (Prompt -> Error -> Fix -> Refine).
 
 **Project Stats:**
-*   **Timeline**: Dec 25 - Jan 12 (19 Days Elapsed)
-*   **Active Vibe Coding Time**: ~26 Hours
-    *   *Session 1*: ~2.0 Hrs (Dec 25) - "Genesis"
+*   **Timeline**: Dec 25 - Jan 31 (37 Days Elapsed)
+*   **Active Vibe Coding Time**: ~35.5 Hours
+    *   *Session 1*: ~0.5 Hrs (Dec 25) - "Genesis"
     *   *Session 2*: ~2.5 Hrs (Dec 26) - "Core Logic"
     *   *Session 3*: ~5.5 Hrs (Dec 27) - "Volume & Grid"
     *   *Session 4*: ~4.0 Hrs (Dec 29) - "Polishing"
@@ -13,6 +13,10 @@ This document chronicles the step-by-step evolution of the **DIY Stock Chart** a
     *   *Session 6*: ~4.0 Hrs (Dec 31) - "Floating Info Panel"
     *   *Session 7*: ~2.0 Hrs (Jan 11) - "Watch List"
     *   *Session 8*: ~4.0 Hrs (Jan 12) - "Refactoring & Visuals"
+    *   *Session 9*: ~3.0 Hrs (Jan 23) - "Pre/Post Market & Outliers"
+    *   *Session 10*: ~3.0 Hrs (Jan 25) - "Chart Types & Bug Fixes"
+    *   *Session 11*: ~4.5 Hrs (Jan 26) - "Optimization & Precision Mechanics"
+    *   *Session 12*: ~3.5 Hrs (Jan 31) - "Global Assets & Data Smoothing"
 
 ---
 
@@ -181,4 +185,97 @@ This document chronicles the step-by-step evolution of the **DIY Stock Chart** a
 *   **Visual Polish**:
     *   **MA Customization**: Switched MA 50/100 colors and updated MA 60 to Blue/MA 5 to Cyan based on user preference.
     *   **Volume Profile**: Changed default bin count from 100 to 200 for better initial precision.
+### Phase 14: The Pre/Post Market & Outlier Odyssey
+**User Prompt**: *"I want to see pre-market and post-market data... add a toggle... huge spikes 420-480... fix it."*
+*   **The Feature**: Added a "Pre/Post" checkbox that dynamically resamples the 1-Day chart to cover 04:00-20:00.
+*   **The Bug (Data Quality)**: `yfinance` raw data contained massive price spikes (e.g., $420 drop then back to $450) in extended hours, rendering the chart unreadable (Scale 0-1000).
+*   **Research**: Investigated the official Yahoo Finance website and found their charts are clean. Confirmed `yfinance` serves raw, unfiltered ticks.
+*   **The Solution (Sequential Filter)**: Implemented a robust **Sequential Outlier Filter**.
+    *   Iterates minute-by-minute.
+    *   Uses the *previous minute's Close* as the "Truth Baseline".
+    *   If the current minute deviates >1% (Pre/Post) or >3% (Market), it resets the candle to the baseline.
+    *   *Result*: A perfectly smooth, professional-grade chart that matches the official website's quality.
+*   **Visuals**: Added gray background shading to visually distinguish Pre-Market (04:00-09:30) and Post-Market (16:00-20:00) sessions.
+
+### Phase 15: Data Integrity & Smart Merging
+**User Prompt**: *"The volume profile bins are wrong when Pre/Post is off... 1 minute data has gaps."*
+*   **Smart Merging**: `yfinance` often returns partial datasets for usage limits. Implemented a "Smart Merge" system that downloads fresh data and carefully stitches it into the existing cache, strictly deduplicating by Time Index.
+*   **Volume Profile Fix**: The VP algorithm originally calculated bins based on the *entire* day's range (including invisible post-market data). Updated logic to filter VP source data to strictly match the visible 09:30-16:00 window when the "Pre/Post" toggle is off.
+
+### Phase 16: Visual Precision & Chart Types
+**User Prompt**: *"Why the last trade day was not drawn on the chart?"*
+*   **The Bug**: 1Y/2Y/3Y charts were missing the current/last trading day (Friday).
+*   **Root Cause**: `yfinance` API uses an exclusive end date parameter. Requesting `end='2026-01-23'` results in data up to Jan 22.
+*   **The Fix**: Updated the fetcher to always request `end = Today + 1 Day` to capture the full session. Added cache validation to redownload stale files.
+
+**User Prompt**: *"I want to add a menu drop down for line chart and candle chart."*
+*   **Implementation**: Added a "Type" dropdown to the toolbar.
+    *   **Candle**: Uses the custom `_plot_candles` renderer.
+    *   **Line**: Implemented `_plot_line` connecting Close Prices with a professional blue curve.
+*   **Value Add**: Allows for cleaner long-term trend analysis without the noise of daily wicks.
+
+**User Prompt**: *"I want to show time with from/to... 9:30 should show 9:30 / 9:40."*
+*   **Refinement**: Upgraded the Crosshair Tooltip for intraday charts.
+    *   **1WK**: Displays 10-minute ranges (`09:30 / 09:40`).
+    *   **1M/3M**: Displays Hourly ranges (`10:30 / 11:30`).
+    *   **The 15:30 Edge Case**: Added specific logic for the final trading bar (15:30) to show the end time as `16:00` (Market Close) instead of 16:30.
+
 ---
+
+### Phase 17: Caching & Precision Engineering
+**User Prompt**: *"Why does it take 8 seconds to start? I want it to be instant."*
+*   **Optimization 1 (Incremental Caching)**: Implemented a persistent CSV cache mechanism.
+    *   **Logic**: Before downloading, the app checks for existing `ticker_interval_date.csv`.
+    *   **Smart Append**: If found, it selectively downloads only the *new* data (Delta) and merges it.
+    *   **Safety**: Added logic to detect "Stock Splits" in the delta; if found, it discards the cache and performs a full clean download.
+*   **Optimization 2 (Metadata Sidecar)**: Basic info (Sector, Name) was blocking the main thread.
+    *   **Fix**: Cached metadata in lightweight `csv/{Ticker}_info.csv` sidecar files.
+    *   **Validity**: This data is considered valid for 30 days. The app reads from disk instantly (0ms) instead of hitting the API, making chart switching instantaneous.
+
+**User Prompt**: *"1WK chart is missing bars... 5Y/10Y chart missing current period."*
+*   **The Resampling Bug**: The standard `resample('1ME')` logic (Month End) naturally excludes the current partial month.
+*   **The Fix**:
+    *   **Long Term**: Switched to `MS` (Month Start) and `W-MON` (Week Start) rules. This forces the current/partial data to be bucketed into the "Start of Period", ensuring the latest forming candle is always visible.
+    *   **Intraday (1WK)**: Updated the 5-minute resampling logic to `closed='left'` to ensure the final partial 10-minute bar (e.g., 11:20-11:30) is preserved even if we are at 11:27.
+
+**User Prompt**: *"For low priced stocks, I want 4 decimal precision... but keep 2 for others."*
+*   **Adaptive Precision**: Implemented dynamic formatting logic in the Crosshair and Title.
+    *   **Algorithm**: `decimals = 4 if price < 2.0 else 2`.
+    *   **Result**: Displays `1.2345` for penny stocks/FX, but `450.20` for SPY.
+
+**User Prompt**: *"SPY cache is stale... shows 11:30 when it is 11:55."*
+*   **The Intraday Cache Paradox**: The incremental updater initially skipped downloading if "Last Date == Today".
+
+### Phase 18: Global Assets & Data Integrity Overhaul
+**User Prompt**: *"Investigate MSFT data... flat line... Global assets empty at night."*
+*   **Global Assets (Forex/Crypto)**:
+    *   **Logic**: Recognized `CAD=X`, `BTC-USD`, `GC=F` as 24/7 assets.
+    *   **Fix**: Bypassed "Market Hours" filters for these types. Implemented a "Calendar Day" view (00:00 - 23:59) to capture overnight moves.
+*   **Data Integrity (The MSFT Fix)**:
+    *   **The Bug**: MSFT dropped 10% on earnings, but the chart showed a flat line.
+    *   **Root Cause**: The "Sequential Outlier Filter" (Phase 14) was *too good*. It flagged the 10% drop as an error and "corrected" it to the previous day's price.
+    *   **The Fix**: **Removed** the outlier filter entirely. Trust the raw feed. Real volatility > Smooth fake charts.
+*   **Visual Gap Filling (The Smoothing)**:
+    *   **Problem**: Small cap stocks (e.g., `IFC.TO`) had gaps in 1-minute data, looking broken.
+    *   **Solution**: Implemented "Visual Forward Fill".
+        *   If minute `T` is missing, draw a **Flat Candle** (`O=C=H=L=LastClose`) with **Volume=0**.
+        *   This creates a "dash" indication of no-trade, visually smoothing the chart without corrupting the data.
+*   **Fast Polling**: Increased auto-refresh rate from 60s to **15s** to better capture fleeting data points for illiquid stocks.
+
+### Phase 19: The "Smart Axis" Revolution
+**User Prompt**: *"The 3M chart starts with Oct 30... labels are squeezed... 1 mon chart jammed at begin/end... 6 mon chart missing middle marks."*
+*   **The Problem**: The linear X-axis logic caused label collisions at the start of charts (e.g., "Jan 01" overlapping with "Dec 31") and erratic spacing on long-term views.
+*   **Solution**: Implemented a **Backtrack Collision Resolution** algorithm.
+    *   **Logic**: Before adding a label, check the distance to the *previous* label. If `< Threshold`, resolve conflict based on priority.
+    *   **Priority System**: "Month Start" > "Day". If a new Month Start appears 2 days after a Day tick, the Day tick is retroactively deleted to make room.
+    *   **Contextual Logic**:
+        *   **Dense (3M/6M)**: Threshold = **6**. Allows mid-month ticks (e.g., 7th, 14th) to survive near month boundaries.
+        *   **Hourly (1M)**: Threshold = **8**. Enforces an "Every Other Day" rhythm to prevent daily adjacent jamming.
+        *   **Sparse (1Y+)**: Threshold = **10**. Prevents long month names (`Jan '25`) from overlapping.
+*   **Value Add**: The X-axis now "breathes" correctly regardless of window size, always prioritizing the most significant time markers.
+
+### Phase 20: Global Assets & Data Integrity (Part II)
+**User Prompt**: *"Global assets empty at night... fix 1D view."*
+*   **Calendar Day View**: For non-market assets (`CAD=X`, `BTC-USD`), we forced a **00:00 - 23:59** view, decoupling them from the standard NYSE 9:30-16:00 filter.
+*   **Data Reliability**: Upgraded `fetch_stock_data` to request **5 Days** of minute data even for 1-Day charts. This safeguards against "Morning Data Loss" where `yfinance` returns only the current session (e.g., 6 PM - 8 PM) and forgets the 9 AM - 4 PM trading session of the *same calendar day*.
+

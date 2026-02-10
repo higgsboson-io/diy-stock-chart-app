@@ -53,28 +53,26 @@ class InfoPanel:
         if not self.app.show_info.get():
              return
         
+        # Ensure geometry is updated based on new content/font
+        self.frame.update_idletasks()
+        
+        req_w = self.frame.winfo_reqwidth()
+        req_h = self.frame.winfo_reqheight()
+        
         # First Time Show? Center it.
         if self.panel_x is None or self.panel_y is None:
-            self.app.root.update_idletasks()
-            
             rw = self.app.root.winfo_width()
             rh = self.app.root.winfo_height()
             
-            current_font = self.app.font_size_var.get()
-            pw = 600 + (current_font * 25)
+            self.panel_x = (rw - req_w) // 2
+            self.panel_y = (rh - req_h) // 10 
             
-            ph = self.frame.winfo_reqheight() or 200 
-            
-            self.panel_x = (rw - pw) // 2
-            self.panel_y = (rh - ph) // 10 
-            
-        current_font = self.app.font_size_var.get()
-        target_width = 600 + (current_font * 25)
-            
+        # Place using the dynamic requested size
         self.frame.place(
             x=self.panel_x, 
             y=self.panel_y, 
-            width=target_width
+            width=req_w,
+            height=req_h
         )
         self.frame.lift()
 
@@ -116,6 +114,20 @@ class InfoPanel:
             ttk.Label(frame, text=val, font=val_font).grid(row=row, column=1, sticky="w", pady=2)
             row += 1
 
+    def _safe_float(self, v):
+        if v is None or v == '': return None
+        try:
+            return float(str(v).replace(';', '').replace(',', ''))
+        except:
+            return None
+
+    def _safe_timestamp(self, v):
+        if v is None or v == '' or v == '-': return None
+        try:
+            return int(float(str(v).replace(';', ''))) 
+        except:
+            return None
+
     def update_content(self):
         # Clear existing content
         for widget in self.info_content.winfo_children():
@@ -131,16 +143,19 @@ class InfoPanel:
         q_type = i.get('quoteType', '').upper()
 
         # --- Prepare Data ---
-        earn_ts = i.get('earningsTimestamp') or i.get('earningsTimestampStart')
+        earn_ts = self._safe_timestamp(i.get('earningsTimestamp') or i.get('earningsTimestampStart'))
         earn_str = "-"
         if earn_ts:
-             earn_str = datetime.fromtimestamp(earn_ts).strftime('%Y-%m-%d')
+             try:
+                 earn_str = datetime.fromtimestamp(earn_ts).strftime('%Y-%m-%d')
+             except: pass
              
         div_str = "-"
-        div_rate = i.get('dividendRate') or i.get('trailingAnnualDividendRate')
-        price = i.get('currentPrice') or i.get('regularMarketPrice')
+        div_rate = self._safe_float(i.get('dividendRate') or i.get('trailingAnnualDividendRate'))
+        price = self._safe_float(i.get('currentPrice') or i.get('regularMarketPrice'))
         
-        etf_yield = i.get('yield')
+        etf_yield = self._safe_float(i.get('yield'))
+        
         if q_type == 'ETF' and etf_yield is not None:
              rate_str = f"{div_rate}" if div_rate else ""
              if rate_str:
@@ -151,7 +166,7 @@ class InfoPanel:
              calc_yield = (div_rate / price) * 100
              div_str = f"{div_rate} ({calc_yield:.2f}%)"
         else:
-             raw_yield = i.get('dividendYield')
+             raw_yield = self._safe_float(i.get('dividendYield'))
              if raw_yield:
                  if raw_yield > 0.5: 
                      div_str = f"{raw_yield:.2f}%"
@@ -165,7 +180,7 @@ class InfoPanel:
             ("Avg Vol", self._fmt(i.get('averageVolume'))),
             ("Beta", self._fmt(beta_val)), 
             ("Fwd Div&Yield", div_str),
-            ("Ex-Div Date", datetime.fromtimestamp(i.get('exDividendDate', 0)).strftime('%Y-%m-%d') if i.get('exDividendDate') else "-"),
+            ("Ex-Div Date", datetime.fromtimestamp(self._safe_timestamp(i.get('exDividendDate'))).strftime('%Y-%m-%d') if self._safe_timestamp(i.get('exDividendDate')) else "-"),
             ("Target Est", self._fmt(i.get('targetMeanPrice'))),
             ("Earnings Date", earn_str)
         ]
