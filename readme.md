@@ -107,7 +107,7 @@ A simplified view focusing purely on the Closing Price. This mode is excellent f
     *   **Quick Add/Remove**: Click the `★` button to add. If already watched, clicking the filled star **instantly removes** it from ALL lists.
     *   **Multi-Select Overlay**: When adding, use the list box to select multiple groups at once (Ctrl+Click).
     *   **Management Overlay**: A custom in-app popup to Create, Rename, or Delete lists and manage saved tickers.
-    *   **CSV Persistence**: All data is saved locally to `csv/watchlist.csv` for portability.
+    *   **CSV Persistence**: All data is saved locally to `conf/watchlist.csv` for portability.
 *   **Left Click + Drag**: Measure price/time differences (Crosshair active).
 *   **Auto-Refresh**: When viewing the **1D** chart, the data automatically reloads every 60 seconds to capture the latest minute bar.
 

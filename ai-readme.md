@@ -130,7 +130,7 @@ This document chronicles the step-by-step evolution of the **DIY Stock Chart** a
 **User Prompt**: *"I want to add a watch list function... click icon... add current ticker... dropdown list... saved in csv."*
 *   **Implementation**:
     *   **The Star Icon**: Added a toggleable `★` button to the chart frame.
-    *   **CSV Persistence**: Implemented `load_watchlist()` / `save_watchlist()` using Python's `csv` module to store favorites in `csv/watchlist.csv`.
+    *   **CSV Persistence**: Implemented `load_watchlist()` / `save_watchlist()` using Python's `csv` module to store favorites in `conf/watchlist.csv`.
     *   **Overlay UI**: Created a custom `Frame` overlay (instead of native OS popups) for seamless integration.
 
 **User Prompt**: *"Popup is very small... I don't want a windows system popup."*

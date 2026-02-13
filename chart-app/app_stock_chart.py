@@ -113,9 +113,9 @@ class StockChartApp:
 
     def load_settings(self):
         try:
-            if not os.path.exists("settings.json"): return
+            if not os.path.exists("conf/settings.json"): return
             
-            with open("settings.json", "r") as f:
+            with open("conf/settings.json", "r") as f:
                 settings = json.load(f)
                 
             # Boolean Vars
@@ -179,7 +179,8 @@ class StockChartApp:
                 "font_size": self.font_size_var.get()
             }
             
-            with open("settings.json", "w") as f:
+            os.makedirs("conf", exist_ok=True)
+            with open("conf/settings.json", "w") as f:
                 json.dump(settings, f, indent=4)
                 
             logger.info("Settings saved.")

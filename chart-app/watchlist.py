@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class WatchListManager:
-    def __init__(self, filepath="csv/watchlist.csv"):
+    def __init__(self, filepath="conf/watchlist.csv"):
         self.filepath = Path(filepath)
         self.data = {} # { 'GroupName': [ {'ticker': 'AAPL', 'name': 'Apple Inc'}, ... ] }
         self.load()
