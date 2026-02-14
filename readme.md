@@ -1,5 +1,7 @@
 # DIY Stock Chart - Python Financial Analysis Tool
 
+> *Updated by Anti Gravity (Claude Opus 4.6 Thinking)*
+
 **DISCLAIMER: THIS ENTIRE PROJECT IS "VIBE CODED" BY ANTIGRAVITY (POWERED BY GEMINI 3.0 PRO) WITHOUT ANY EXTRA MANUAL CHANGE ON CODE AND README OTHER THAN PROMPT INTERACTION.**
 
 [![PayPal - $10](https://img.shields.io/badge/PayPal-$10-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/briannlhotmail/10) [![Donate to Campfire Circle](https://img.shields.io/badge/Donate-Campfire%20Circle-orange?style=for-the-badge&logo=heart&logoColor=white)](https://support.campfirecircle.org/diy/helping-the-kids-to-recover) [![Donate to SickKids](https://img.shields.io/badge/Donate-SickKids-blue?style=for-the-badge&logo=heart&logoColor=white)](https://give.sickkidsfoundation.com/fundraisers/brianli/healthy-kids)
@@ -8,6 +10,8 @@
 - A interactive stock technical analysis application built with Python (`tkinter` + `matplotlib`). This project demonstrates how to build a simplistic stock charting tool from scratch, featuring Yahoo FInance free market data, advanced technical indicators, volume profiling, and a responsive custom UI.
 - This is a 0-coding project and every line of code is done by Anti Gravity with Gemini 3.0 pro.
 - Refer to the [AI readme](ai-readme.md) for more details on the prompt jurney.
+
+> 📖 **Documentation**: [Software Design Document](design.md) · [Algorithm Deep-Dive](chart-app/algorithm.md)
 
 > [!WARNING]
 > **Data Quality & Trading Risk**: This application relies on the unofficial, free Yahoo Finance API (`yfinance`). Data may be delayed, contain gaps (especially for intraday or global assets), or include erroneous ticks. This tool is for **educational/research purposes only** and should **NOT** be used for real-time trading or financial decisions. The developers are not responsible for any financial losses.
