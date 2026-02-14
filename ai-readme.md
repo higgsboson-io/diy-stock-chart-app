@@ -3,8 +3,8 @@
 This document chronicles the step-by-step evolution of the **DIY Stock Chart** application. It serves as a historical record of how a simple CLI script was transformed into a professional-grade GUI tool through iterative "Vibe Coding" (Prompt -> Error -> Fix -> Refine).
 
 **Project Stats:**
-*   **Timeline**: Dec 25 - Jan 31 (37 Days Elapsed)
-*   **Active Vibe Coding Time**: ~35.5 Hours
+*   **Timeline**: Dec 25 - Feb 13 (50 Days Elapsed)
+*   **Active Vibe Coding Time**: ~36.5 Hours
     *   *Session 1*: ~0.5 Hrs (Dec 25) - "Genesis"
     *   *Session 2*: ~2.5 Hrs (Dec 26) - "Core Logic"
     *   *Session 3*: ~5.5 Hrs (Dec 27) - "Volume & Grid"
@@ -17,6 +17,7 @@ This document chronicles the step-by-step evolution of the **DIY Stock Chart** a
     *   *Session 10*: ~3.0 Hrs (Jan 25) - "Chart Types & Bug Fixes"
     *   *Session 11*: ~4.5 Hrs (Jan 26) - "Optimization & Precision Mechanics"
     *   *Session 12*: ~3.5 Hrs (Jan 31) - "Global Assets & Data Smoothing"
+    *   *Session 13*: ~1.0 Hrs (Feb 13) - "Reverse Engineering & Documentation"
 
 ---
 
@@ -279,3 +280,19 @@ This document chronicles the step-by-step evolution of the **DIY Stock Chart** a
 *   **Calendar Day View**: For non-market assets (`CAD=X`, `BTC-USD`), we forced a **00:00 - 23:59** view, decoupling them from the standard NYSE 9:30-16:00 filter.
 *   **Data Reliability**: Upgraded `fetch_stock_data` to request **5 Days** of minute data even for 1-Day charts. This safeguards against "Morning Data Loss" where `yfinance` returns only the current session (e.g., 6 PM - 8 PM) and forgets the 9 AM - 4 PM trading session of the *same calendar day*.
 
+### Phase 21: Reverse Engineering & Documentation
+**User Prompt**: *"Perform a comprehensive code review and produce a Software Design Document, review the Algorithm doc, and update the README."*
+*   **AI-Driven Reverse Engineering**: Used Anti Gravity (Claude Opus 4.6 Thinking) to read all 3,000+ lines of Python across 5 modules and auto-generate a complete Software Design Document.
+*   **`design.md` Created**: A 550-line document containing:
+    *   **HLD**: Component architecture, threading model, startup sequence, data acquisition flow, technology stack.
+    *   **LLD**: Full class diagram (5 classes), 6 method-breakdown tables, state management model, caching strategy, rendering pipeline activity diagram, 3 interaction flow sequence diagrams.
+    *   **Data Model**: Entity-Relationship Diagram for all persisted artifacts (OHLCV cache, metadata sidecar, watchlist, settings).
+    *   **Cross-Cutting Concerns**: Logging, error handling, DPI awareness, performance considerations.
+    *   All 10 diagrams in **PlantUML** format, fully traceable to actual code.
+*   **`algorithm.md` Reviewed & Rewritten**: Cross-referenced every algorithm against the source code.
+    *   Fixed file path references (`app/` → correct relative paths).
+    *   Expanded crosshair algorithm to match actual click-drag + twin-axis implementation.
+    *   Added 2 new sections: Sequential Outlier Filter (§9) and Technical Indicators — MACD/RSI/Bollinger Bands (§10).
+    *   Added cross-reference links to `design.md` throughout.
+*   **`readme.md` Updated**: Added documentation navigation link pointing to `design.md` and `algorithm.md`.
+*   **LinkedIn Article (Part II)**: Drafted a follow-up article covering post-POC learnings, the 10x productivity thesis, AI reverse engineering for legacy modernization, and Wittgenstein's language-games framework applied to natural language programming.
