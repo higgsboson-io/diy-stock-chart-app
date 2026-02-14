@@ -1,0 +1,46 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam sequence {
+  ParticipantBackgroundColor #E8F4FD
+  ParticipantBorderColor #5B9BD5
+  LifeLineBorderColor #999999
+}
+
+actor User
+participant "StockChartApp\n__init__" as App
+participant "_setup_ui" as UI
+participant "ChartPlotter" as CP
+participant "InfoPanel" as IP
+participant "WatchListManager" as WLM
+participant "load_settings" as LS
+participant "fetch_data" as FD
+participant "cleanup_old_cache" as CC
+
+User -> App : launch app_stock_chart.py
+activate App
+
+App -> WLM : WatchListManager()
+WLM -> WLM : load() — read conf/watchlist.csv
+
+App -> UI : _setup_ui()
+UI -> UI : Create control_frame, indicator_frame
+UI -> UI : Create Figure & Canvas
+UI -> UI : Create NavigationToolbar2Tk
+
+App -> CP : ChartPlotter(fig, canvas, self)
+App -> IP : InfoPanel(self)
+
+App -> App : ticker_entry.insert("SPY")
+App -> LS : load_settings()
+LS -> LS : Read conf/settings.json
+LS -> App : Apply saved BooleanVars, StringVars
+
+App -> FD : fetch_data()
+note right : Spawns background thread
+
+App -> App : root.after(100, _process_queue)
+App -> App : root.after(60000, _auto_refresh_loop)
+App -> CC : cleanup_old_cache()
+
+deactivate App
+@enduml

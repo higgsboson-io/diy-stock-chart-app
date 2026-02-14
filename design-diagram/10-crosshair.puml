@@ -1,0 +1,40 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam sequence {
+  ParticipantBackgroundColor #E8F4FD
+  ParticipantBorderColor #5B9BD5
+}
+
+actor User
+participant "ChartPlotter" as CP
+participant "matplotlib canvas" as Canvas
+
+User -> Canvas : Mouse button down (left click)
+Canvas -> CP : _on_mouse_down(event)
+CP -> CP : is_dragging = True
+CP -> CP : Resolve target axis\n(handle twin-axis overlap)
+CP -> CP : _update_crosshair(x, y, axis)
+
+loop while dragging
+  User -> Canvas : Mouse move
+  Canvas -> CP : _on_mouse_move(event)
+  CP -> CP : _update_crosshair(x, y, axis)
+  note right
+    1. Snap x to nearest bar index
+    2. Lookup date from current_df_dates
+    3. Update all vertical lines (all axes)
+    4. Update horizontal line (active axis only)
+    5. Compute OHLC from history_df
+    6. Format date label (context-aware)
+    7. Show volume label
+    8. canvas.draw_idle()
+  end note
+end
+
+User -> Canvas : Mouse button up
+Canvas -> CP : _on_mouse_up(event)
+CP -> CP : is_dragging = False
+CP -> CP : Hide all crosshair elements
+CP -> Canvas : canvas.draw_idle()
+
+@enduml

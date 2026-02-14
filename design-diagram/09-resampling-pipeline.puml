@@ -1,0 +1,37 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam activity {
+  BackgroundColor #E8F4FD
+  BorderColor #5B9BD5
+}
+
+start
+:_apply_resampling();
+:df = resample_data(raw_df, current_resample_rule);
+
+if (interval == "1m" && is_global_asset?) then (yes)
+  :Filter to latest calendar date only\n(Midnight-to-Midnight view);
+elseif (interval == "1m" && !show_prepost && !global?) then (yes)
+  :Filter between_time("09:30", "16:00");
+endif
+
+if (df is empty?) then (yes)
+  :history_df = empty;
+  :update_chart();
+  stop
+endif
+
+if (interval == "1m" && !empty?) then (yes)
+  :Gap Fill: resample("1min").asfreq();
+  :Forward-fill Close;
+  :Set O/H/L = filled Close;
+  :Set Volume = 0 for filled rows;
+endif
+
+:history_df = df;
+:history_df = calculate_indicators(history_df);
+:update_chart();
+:toggle_info_panel();
+stop
+
+@enduml

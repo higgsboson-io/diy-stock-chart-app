@@ -1,0 +1,72 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam activity {
+  BackgroundColor #E8F4FD
+  BorderColor #5B9BD5
+}
+
+start
+:ChartPlotter.update_chart() called;
+
+if (history_df is empty?) then (yes)
+  :Clear figure;
+  :canvas.draw();
+  stop
+endif
+
+:Set global font from font_size_var;
+:_filter_data_by_window(history_df, window);
+
+if (window == "1D"?) then (yes)
+  :Construct fixed 1-min index\n(09:30-16:00 or 00:00-23:59 for global);
+  :Reindex df to full trading day;
+endif
+
+:fig.clear();
+:Reset crosshair_lines, panel_labels, axes_dict;
+
+:Determine panels: [price] + [macd?] + [rsi?];
+:Calculate height ratios\n(price=100-15*N, others=15 each);
+:Create GridSpec(N panels);
+
+:Create integer x_indices = [0..len(df)-1];
+:Store df.index as current_df_dates;
+
+partition "Price Panel" {
+  if (show_prepost && 1D?) then (yes)
+    :Draw pre/post market shading\n(axvspan at <09:30 and >=16:00);
+  endif
+  if (show_volume?) then (yes)
+    :_plot_volume_overlay() — twin Y axis;
+  endif
+  if (chart_type == "Line"?) then (yes)
+    :_plot_line();
+  else (Candle)
+    :_plot_candles();
+  endif
+  :_plot_ma();
+  :_plot_bbands();
+  if (show_vp?) then (yes)
+    :_plot_volume_profile() — twin X axis;
+  endif
+  :Calculate y_min/y_max from Low/High/BBands/MAs;
+  :Apply ylim with 5% padding;
+}
+
+partition "Sub-Panels" {
+  if (MACD shown?) then (yes)
+    :_plot_macd();
+  endif
+  if (RSI shown?) then (yes)
+    :_plot_rsi();
+  endif
+}
+
+:_setup_date_axis() on bottom panel;
+:Set xlim(-0.5, len-0.5);
+:Setup crosshair labels (hidden);
+:Setup crosshair vert/horiz lines (hidden);
+:canvas.draw();
+stop
+
+@enduml

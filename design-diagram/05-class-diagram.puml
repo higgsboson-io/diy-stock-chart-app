@@ -1,0 +1,189 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam class {
+  BackgroundColor #E8F4FD
+  BorderColor #5B9BD5
+  AttributeFontColor #333333
+  HeaderBackgroundColor #C5E1F5
+}
+skinparam stereotypeFontColor #888888
+
+class StockChartApp {
+  -- Fields --
+  root : tk.Tk
+  current_ticker : str
+  history_df : pd.DataFrame
+  raw_df : pd.DataFrame
+  data_queue : queue.Queue
+  previous_close : float
+  current_price : float
+  current_data_interval : str
+  current_resample_rule : str | None
+  company_name : str
+  stock_info : dict
+  -- tk Variables --
+  time_window_var : tk.StringVar
+  font_size_var : tk.IntVar
+  show_ma5..ma250 : tk.BooleanVar
+  show_volume : tk.BooleanVar
+  show_macd : tk.BooleanVar
+  show_rsi : tk.BooleanVar
+  show_bbards : tk.BooleanVar
+  show_vp : tk.BooleanVar
+  auto_refresh : tk.BooleanVar
+  vp_mode_var : tk.StringVar
+  vp_position : tk.StringVar
+  chart_type_var : tk.StringVar
+  show_prepost : tk.BooleanVar
+  show_legend : tk.BooleanVar
+  show_info : tk.BooleanVar
+  -- UI Widgets --
+  ticker_entry : ttk.Entry
+  go_btn : ttk.Button
+  star_btn : ttk.Button
+  watchlist_mb : ttk.Menubutton
+  ma_btn : ttk.Button
+  fig : plt.Figure
+  canvas : FigureCanvasTkAgg
+  -- Components --
+  plotter : ChartPlotter
+  info_panel : InfoPanel
+  watchlist_manager : WatchListManager
+  watchlist_ui : WatchListUI
+  ==
+  + __init__(root)
+  + load_settings()
+  + save_settings()
+  - _setup_ui()
+  + fetch_data(event?, interval?, silent?)
+  - _download_worker_wrapper(ticker, interval)
+  - _process_queue()
+  - _apply_resampling()
+  + update_chart(*args)
+  + on_window_change()
+  - _auto_refresh_loop()
+  + toggle_info_panel(event?)
+  + update_ui_font()
+  + refresh_watchlist_menu()
+  + load_ticker_from_watchlist(ticker)
+  + update_star_state()
+  + on_star_click()
+  + open_manage_watchlist_overlay()
+  + open_ma_popup()
+  + on_closing()
+  + on_destroy(event)
+}
+
+class ChartPlotter {
+  -- Fields --
+  fig : plt.Figure
+  canvas : FigureCanvasTkAgg
+  app : StockChartApp
+  crosshair_lines : dict
+  crosshair_texts : dict
+  panel_labels : dict
+  axes_dict : dict
+  is_dragging : bool
+  current_df_dates : list
+  ==
+  + __init__(fig, canvas, app_state)
+  - _filter_data_by_window(df, window) : pd.DataFrame
+  - _setup_date_axis(ax, df, window)
+  + update_chart(*args)
+  - _plot_candles(ax, df, x_indices)
+  - _plot_line(ax, df, x_indices)
+  - _plot_ma(ax, df, x_indices)
+  - _plot_bbands(ax, df, x_indices)
+  - _plot_volume_overlay(ax, df, x_indices)
+  - _plot_macd(ax, df, x_indices)
+  - _plot_rsi(ax, df, x_indices)
+  - _plot_volume_profile(ax, df)
+  - _on_mouse_down(event)
+  - _on_mouse_up(event)
+  - _on_mouse_move(event)
+  - _update_crosshair(x_data, y_data, in_axes)
+}
+
+class InfoPanel {
+  -- Fields --
+  app : StockChartApp
+  panel_x : int | None
+  panel_y : int | None
+  frame : ttk.Frame
+  info_content : ttk.Frame
+  info_title_label : ttk.Label
+  ==
+  + __init__(app_state)
+  - _create_ui()
+  + toggle(event?)
+  - _apply_panel_position()
+  - _fmt(num, is_percent?, trim_large?) : str
+  - _add_section(parent, title, items)
+  - _safe_float(v) : float | None
+  - _safe_timestamp(v) : int | None
+  + update_content()
+  + start_drag(event)
+  + do_drag(event)
+  + close_info_panel()
+}
+
+class WatchListManager {
+  -- Fields --
+  filepath : Path
+  data : dict[str, list[dict]]
+  _group_order : list[str]
+  ==
+  + __init__(filepath?)
+  + load()
+  + save()
+  + create_group(group_name) : bool
+  + add_ticker(group, ticker, name)
+  + update_ticker_name(group, ticker, new_name) : bool
+  + get_groups() : list[str]
+  + get_items(group) : list[dict]
+  + is_watched(ticker) : bool
+  + rename_group(old_name, new_name) : bool
+  + delete_group(group_name) : bool
+  + move_group(group_name, delta) : bool
+  + move_ticker(group, ticker, delta) : bool
+  + remove_ticker(group, ticker) : bool
+  + remove_ticker_entirely(ticker) : bool
+}
+
+class WatchListUI {
+  -- Fields --
+  app : StockChartApp
+  manage_paned : PanedWindow
+  group_listbox : tk.Listbox
+  ticker_listbox : tk.Listbox
+  rename_var : tk.StringVar
+  ==
+  + __init__(app_state)
+  + open_add_to_watchlist_dialog()
+  + open_manage_watchlist_overlay()
+  - _on_root_configure(event)
+  + update_manage_overlay_font(size)
+  - _update_overlay_geometry(only_height?)
+  + close_manage_popup()
+  - _refresh_group_list()
+  - _on_group_select(event)
+  - _do_rename_group()
+  - _do_delete_group()
+  - _do_remove_ticker()
+  - _do_add_ticker()
+  - _do_move_group(delta)
+  - _do_move_ticker(delta)
+}
+
+' Relationships
+StockChartApp *-- ChartPlotter : plotter
+StockChartApp *-- InfoPanel : info_panel
+StockChartApp *-- WatchListManager : watchlist_manager
+StockChartApp *-- WatchListUI : watchlist_ui
+
+ChartPlotter ..> StockChartApp : reads state (self.app)
+InfoPanel ..> StockChartApp : reads state (self.app)
+WatchListUI ..> StockChartApp : reads/writes state (self.app)
+WatchListUI --> WatchListManager : CRUD via self.app.watchlist_manager
+
+@enduml

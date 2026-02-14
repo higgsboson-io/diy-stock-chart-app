@@ -1,0 +1,55 @@
+@startuml
+skinparam componentStyle uml2
+skinparam backgroundColor #FEFEFE
+skinparam component {
+  BackgroundColor #E8F4FD
+  BorderColor #5B9BD5
+  FontColor #333333
+}
+skinparam package {
+  BackgroundColor #FFF8E1
+  BorderColor #F9A825
+}
+
+package "DIY Stock Chart App" {
+
+  package "Presentation Layer" {
+    [StockChartApp\n(app_stock_chart.py)] as APP
+    [ChartPlotter\n(chart_drawing.py)] as CHART
+    [InfoPanel\n(info_panel.py)] as INFO
+    [WatchListUI\n(watchlist.py)] as WLUI
+  }
+
+  package "Business Logic Layer" {
+    [WatchListManager\n(watchlist.py)] as WLM
+    [stock_util.py\n(Functions)] as UTIL
+  }
+
+  package "Data / Persistence Layer" {
+    [CSV Cache\n(csv/*.csv)] as CACHE
+    [Settings\n(conf/settings.json)] as SETTINGS
+    [Watchlist Store\n(conf/watchlist.csv)] as WLCSV
+  }
+
+  package "External" {
+    [Yahoo Finance API\n(yfinance)] as YF
+  }
+}
+
+APP --> CHART : creates & delegates\nupdate_chart()
+APP --> INFO  : creates & delegates\ntoggle() / update_content()
+APP --> WLUI  : creates & delegates\nopen dialogs
+APP --> WLM   : creates & queries\nis_watched() / add_ticker()
+APP --> UTIL  : fetch_stock_data_with_cache()\nget_interval_settings()\nresample_data()\ncalculate_indicators()
+APP --> SETTINGS : load_settings()\nsave_settings()
+
+CHART ..> APP  : reads app state\n(via self.app reference)
+INFO  ..> APP  : reads stock_info\n(via self.app reference)
+WLUI  --> WLM  : CRUD operations
+WLUI  ..> APP  : reads/writes state
+
+UTIL  --> YF   : yf.Ticker().history()
+UTIL  --> CACHE : read / write CSV
+WLM   --> WLCSV : pd.read_csv()\nto_csv()
+
+@enduml

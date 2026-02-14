@@ -1,0 +1,103 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam entity {
+  BackgroundColor #E8F4FD
+  BorderColor #5B9BD5
+  HeaderBackgroundColor #C5E1F5
+}
+
+entity "OHLCV Cache File" as OHLCV {
+  * **filename** : {ticker}_{interval}_{date}.csv
+  --
+  * Date/Time (index) : datetime
+  Open : float
+  High : float
+  Low : float
+  Close : float
+  Adj Close : float
+  Volume : int
+  [Dividends] : float
+  [Stock Splits] : float
+}
+
+entity "Metadata Sidecar" as META {
+  * **filename** : {ticker}_info.csv
+  --
+  Key : str
+  Value : str
+  --
+  last_updated : ISO timestamp
+  shortName : str
+  longName : str
+  sector : str
+  industry : str
+  exchange : str
+  currency : str
+  quoteType : str
+  dividendRate : float
+  trailingAnnualDividendRate : float
+  yield : float
+  dividendYield : float
+  fiftyTwoWeekLow : float
+  fiftyTwoWeekHigh : float
+  averageVolume : int
+  beta : float
+  beta3Year : float
+  exDividendDate : timestamp
+  targetMeanPrice : float
+  totalAssets : float
+  navPrice : float
+  netExpenseRatio : float
+  annualReportExpenseRatio : float
+  expenseRatio : float
+  trailingPE : float
+  forwardPE : float
+  pegRatio : float
+  trailingPegRatio : float
+  priceToBook : float
+  priceToSalesTrailing12Months : float
+  enterpriseToEbitda : float
+  marketCap : float
+  previousClose : float
+  regularMarketPreviousClose : float
+}
+
+entity "Watchlist File" as WL {
+  * **filename** : conf/watchlist.csv
+  --
+  WatchList : str <<group name>>
+  Ticker : str
+  Name : str
+}
+
+entity "Settings File" as SETTINGS {
+  * **filename** : conf/settings.json
+  --
+  ma5..ma250 : bool
+  volume : bool
+  macd : bool
+  rsi : bool
+  bbands : bool
+  vp : bool
+  legend : bool
+  show_info : bool
+  show_prepost : bool
+  time_window : str
+  vp_mode : str
+  vp_pos : str
+  chart_type : str
+  font_size : int
+}
+
+entity "Debug Output" as DEBUG {
+  * **filename** : csv/debug_{ticker}_{interval}_{date}.csv
+  --
+  (same schema as OHLCV)
+}
+
+OHLCV }|--|| META : "1 ticker → 1 sidecar"
+WL ||--|{ WL : "group → N tickers"
+
+note "All storage is flat-file (CSV/JSON).\nNo relational database is used.\nFiles are identified by naming convention." as N1
+
+@enduml

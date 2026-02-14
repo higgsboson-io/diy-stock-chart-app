@@ -1,0 +1,61 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam sequence {
+  ParticipantBackgroundColor #E8F4FD
+  ParticipantBorderColor #5B9BD5
+}
+
+participant "MainThread\n_process_queue" as MQ
+participant "BackgroundThread" as BG
+participant "fetch_stock_data\n_with_cache" as FSDC
+participant "Yahoo Finance\nAPI" as YF
+participant "CSV Cache\n(csv/)" as CSV
+participant "Metadata\n(csv/*_info.csv)" as META
+
+MQ -> BG : threading.Thread(target=_download_worker_wrapper)
+activate BG
+
+BG -> FSDC : fetch_stock_data_with_cache(ticker, interval)
+activate FSDC
+
+FSDC -> CSV : glob("{ticker}_{interval}_*.csv")
+alt Cache file exists
+  FSDC -> CSV : pd.read_csv(cache_file)
+  FSDC -> FSDC : Determine if incremental update needed
+  alt interval == "1m"
+    FSDC -> YF : yf.Ticker(ticker).history(period="5d", interval="1m")
+    FSDC -> FSDC : Merge cache + new (dedup by index)
+  else Daily/Hourly & stale
+    FSDC -> YF : yf.Ticker(ticker).history(start=last_date)
+    alt Stock Split detected
+      FSDC -> YF : Full re-download from 2000-01-01
+    else Normal
+      FSDC -> FSDC : Concat + dedup
+    end
+  end
+else No cache
+  FSDC -> YF : Full download (start depends on interval)
+end
+
+FSDC -> CSV : df.to_csv(new_cache_path)
+FSDC -> CSV : Delete old cache file if renamed
+
+FSDC -> META : load_ticker_metadata(ticker)
+alt Metadata missing or stale (>30 days)
+  FSDC -> YF : yf.Ticker(ticker).info
+  FSDC -> META : save_ticker_metadata(ticker, info)
+end
+
+FSDC --> BG : (df, company_name, interval, prev_close, curr_price, info_dict)
+deactivate FSDC
+
+BG -> MQ : data_queue.put(('data', result))
+deactivate BG
+
+MQ -> MQ : Dequeue & process
+MQ -> MQ : Update app state (raw_df, stock_info, etc.)
+MQ -> MQ : _apply_resampling()
+MQ -> MQ : calculate_indicators()
+MQ -> MQ : update_chart()
+
+@enduml

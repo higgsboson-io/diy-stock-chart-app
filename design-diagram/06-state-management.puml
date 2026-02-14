@@ -1,0 +1,51 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam object {
+  BackgroundColor #E8F4FD
+  BorderColor #5B9BD5
+  HeaderBackgroundColor #C5E1F5
+}
+
+object "StockChartApp\nState" as State {
+  **Data State**
+  current_ticker = "SPY"
+  raw_df = <DataFrame(original)>
+  history_df = <DataFrame(resampled+indicators)>
+  current_data_interval = "1d"
+  current_resample_rule = None
+  previous_close = 595.12
+  current_price = 602.45
+  stock_info = {shortName, sector, PE, ...}
+  company_name = "SPDR S&P 500"
+  ----
+  **UI Toggles (persisted)**
+  time_window_var = "1Y"
+  font_size_var = 9
+  show_ma5..ma250 = True/False
+  show_volume = True
+  show_macd = True
+  show_rsi = True
+  show_bbards = True
+  show_vp = True
+  vp_mode_var = "200 Bins"
+  vp_position = "Right"
+  chart_type_var = "Candle"
+  show_prepost = False
+  show_legend = True
+  show_info = False
+  auto_refresh = True
+  ----
+  **Runtime**
+  data_queue = <Queue>
+}
+
+note bottom of State
+  * All tk.BooleanVar / tk.StringVar / tk.IntVar
+  * Saved to conf/settings.json on close
+  * Loaded from conf/settings.json on startup
+  * stock_info is enriched with dynamic
+    fields (dayHigh, dayLow, volume) in
+    _process_queue()
+end note
+
+@enduml

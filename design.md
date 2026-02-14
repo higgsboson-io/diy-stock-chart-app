@@ -67,104 +67,15 @@ A sixth file, `debug_price.py`, is a standalone CLI tool for data-quality analys
 
 ### 1.3 Component Architecture
 
-```plantuml
-@startuml
-skinparam componentStyle uml2
-skinparam backgroundColor #FEFEFE
-skinparam component {
-  BackgroundColor #E8F4FD
-  BorderColor #5B9BD5
-  FontColor #333333
-}
-skinparam package {
-  BackgroundColor #FFF8E1
-  BorderColor #F9A825
-}
+📄 [PlantUML Source](design-diagram/01-component-architecture.puml)
 
-package "DIY Stock Chart App" {
-
-  package "Presentation Layer" {
-    [StockChartApp\n(app_stock_chart.py)] as APP
-    [ChartPlotter\n(chart_drawing.py)] as CHART
-    [InfoPanel\n(info_panel.py)] as INFO
-    [WatchListUI\n(watchlist.py)] as WLUI
-  }
-
-  package "Business Logic Layer" {
-    [WatchListManager\n(watchlist.py)] as WLM
-    [stock_util.py\n(Functions)] as UTIL
-  }
-
-  package "Data / Persistence Layer" {
-    [CSV Cache\n(csv/*.csv)] as CACHE
-    [Settings\n(conf/settings.json)] as SETTINGS
-    [Watchlist Store\n(conf/watchlist.csv)] as WLCSV
-  }
-
-  package "External" {
-    [Yahoo Finance API\n(yfinance)] as YF
-  }
-}
-
-APP --> CHART : creates & delegates\nupdate_chart()
-APP --> INFO  : creates & delegates\ntoggle() / update_content()
-APP --> WLUI  : creates & delegates\nopen dialogs
-APP --> WLM   : creates & queries\nis_watched() / add_ticker()
-APP --> UTIL  : fetch_stock_data_with_cache()\nget_interval_settings()\nresample_data()\ncalculate_indicators()
-APP --> SETTINGS : load_settings()\nsave_settings()
-
-CHART ..> APP  : reads app state\n(via self.app reference)
-INFO  ..> APP  : reads stock_info\n(via self.app reference)
-WLUI  --> WLM  : CRUD operations
-WLUI  ..> APP  : reads/writes state
-
-UTIL  --> YF   : yf.Ticker().history()
-UTIL  --> CACHE : read / write CSV
-WLM   --> WLCSV : pd.read_csv()\nto_csv()
-
-@enduml
-```
+![Component Architecture](design-diagram/01-component-architecture.png)
 
 ### 1.4 Threading & Concurrency Model
 
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-skinparam activity {
-  BackgroundColor #E8F4FD
-  BorderColor #5B9BD5
-}
+📄 [PlantUML Source](design-diagram/02-threading-concurrency.puml)
 
-|Main Thread (tkinter)|
-start
-:Initialize StockChartApp;
-:_setup_ui();
-:fetch_data() called;
-:Spawn daemon Thread;
-
-|Background Thread|
-:_download_worker_wrapper();
-:call fetch_stock_data_with_cache();
-:Put result into data_queue;
-stop
-
-|Main Thread (tkinter)|
-:root.after(100ms) → _process_queue();
-:Dequeue result;
-:_apply_resampling();
-:calculate_indicators();
-:update_chart();
-:root.after(60s) → _auto_refresh_loop();
-
-note right
-  * All GUI mutations happen on the main thread
-  * Background thread is daemon (auto-killed on exit)
-  * Queue decouples producer from consumer
-  * Auto-refresh runs only for "1D" window
-end note
-
-@enduml
-```
+![Threading & Concurrency Model](design-diagram/02-threading-concurrency.png)
 
 **Concurrency rules**:
 - The `queue.Queue` is the sole communication channel between threads.
@@ -175,120 +86,15 @@ end note
 
 ### 1.5 Data Flow — Startup Sequence
 
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-skinparam sequence {
-  ParticipantBackgroundColor #E8F4FD
-  ParticipantBorderColor #5B9BD5
-  LifeLineBorderColor #999999
-}
+📄 [PlantUML Source](design-diagram/03-startup-sequence.puml)
 
-actor User
-participant "StockChartApp\n__init__" as App
-participant "_setup_ui" as UI
-participant "ChartPlotter" as CP
-participant "InfoPanel" as IP
-participant "WatchListManager" as WLM
-participant "load_settings" as LS
-participant "fetch_data" as FD
-participant "cleanup_old_cache" as CC
-
-User -> App : launch app_stock_chart.py
-activate App
-
-App -> WLM : WatchListManager()
-WLM -> WLM : load() — read conf/watchlist.csv
-
-App -> UI : _setup_ui()
-UI -> UI : Create control_frame, indicator_frame
-UI -> UI : Create Figure & Canvas
-UI -> UI : Create NavigationToolbar2Tk
-
-App -> CP : ChartPlotter(fig, canvas, self)
-App -> IP : InfoPanel(self)
-
-App -> App : ticker_entry.insert("SPY")
-App -> LS : load_settings()
-LS -> LS : Read conf/settings.json
-LS -> App : Apply saved BooleanVars, StringVars
-
-App -> FD : fetch_data()
-note right : Spawns background thread
-
-App -> App : root.after(100, _process_queue)
-App -> App : root.after(60000, _auto_refresh_loop)
-App -> CC : cleanup_old_cache()
-
-deactivate App
-@enduml
-```
+![Startup Sequence](design-diagram/03-startup-sequence.png)
 
 ### 1.6 Data Flow — Data Acquisition
 
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-skinparam sequence {
-  ParticipantBackgroundColor #E8F4FD
-  ParticipantBorderColor #5B9BD5
-}
+📄 [PlantUML Source](design-diagram/04-data-acquisition.puml)
 
-participant "MainThread\n_process_queue" as MQ
-participant "BackgroundThread" as BG
-participant "fetch_stock_data\n_with_cache" as FSDC
-participant "Yahoo Finance\nAPI" as YF
-participant "CSV Cache\n(csv/)" as CSV
-participant "Metadata\n(csv/*_info.csv)" as META
-
-MQ -> BG : threading.Thread(target=_download_worker_wrapper)
-activate BG
-
-BG -> FSDC : fetch_stock_data_with_cache(ticker, interval)
-activate FSDC
-
-FSDC -> CSV : glob("{ticker}_{interval}_*.csv")
-alt Cache file exists
-  FSDC -> CSV : pd.read_csv(cache_file)
-  FSDC -> FSDC : Determine if incremental update needed
-  alt interval == "1m"
-    FSDC -> YF : yf.Ticker(ticker).history(period="5d", interval="1m")
-    FSDC -> FSDC : Merge cache + new (dedup by index)
-  else Daily/Hourly & stale
-    FSDC -> YF : yf.Ticker(ticker).history(start=last_date)
-    alt Stock Split detected
-      FSDC -> YF : Full re-download from 2000-01-01
-    else Normal
-      FSDC -> FSDC : Concat + dedup
-    end
-  end
-else No cache
-  FSDC -> YF : Full download (start depends on interval)
-end
-
-FSDC -> CSV : df.to_csv(new_cache_path)
-FSDC -> CSV : Delete old cache file if renamed
-
-FSDC -> META : load_ticker_metadata(ticker)
-alt Metadata missing or stale (>30 days)
-  FSDC -> YF : yf.Ticker(ticker).info
-  FSDC -> META : save_ticker_metadata(ticker, info)
-end
-
-FSDC --> BG : (df, company_name, interval, prev_close, curr_price, info_dict)
-deactivate FSDC
-
-BG -> MQ : data_queue.put(('data', result))
-deactivate BG
-
-MQ -> MQ : Dequeue & process
-MQ -> MQ : Update app state (raw_df, stock_info, etc.)
-MQ -> MQ : _apply_resampling()
-MQ -> MQ : calculate_indicators()
-MQ -> MQ : update_chart()
-
-@enduml
-```
+![Data Acquisition](design-diagram/04-data-acquisition.png)
 
 ### 1.7 Technology Stack
 
@@ -309,197 +115,9 @@ MQ -> MQ : update_chart()
 
 ### 2.1 Class Diagram
 
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-skinparam class {
-  BackgroundColor #E8F4FD
-  BorderColor #5B9BD5
-  AttributeFontColor #333333
-  HeaderBackgroundColor #C5E1F5
-}
-skinparam stereotypeFontColor #888888
+📄 [PlantUML Source](design-diagram/05-class-diagram.puml)
 
-class StockChartApp {
-  -- Fields --
-  root : tk.Tk
-  current_ticker : str
-  history_df : pd.DataFrame
-  raw_df : pd.DataFrame
-  data_queue : queue.Queue
-  previous_close : float
-  current_price : float
-  current_data_interval : str
-  current_resample_rule : str | None
-  company_name : str
-  stock_info : dict
-  -- tk Variables --
-  time_window_var : tk.StringVar
-  font_size_var : tk.IntVar
-  show_ma5..ma250 : tk.BooleanVar
-  show_volume : tk.BooleanVar
-  show_macd : tk.BooleanVar
-  show_rsi : tk.BooleanVar
-  show_bbards : tk.BooleanVar
-  show_vp : tk.BooleanVar
-  auto_refresh : tk.BooleanVar
-  vp_mode_var : tk.StringVar
-  vp_position : tk.StringVar
-  chart_type_var : tk.StringVar
-  show_prepost : tk.BooleanVar
-  show_legend : tk.BooleanVar
-  show_info : tk.BooleanVar
-  -- UI Widgets --
-  ticker_entry : ttk.Entry
-  go_btn : ttk.Button
-  star_btn : ttk.Button
-  watchlist_mb : ttk.Menubutton
-  ma_btn : ttk.Button
-  fig : plt.Figure
-  canvas : FigureCanvasTkAgg
-  -- Components --
-  plotter : ChartPlotter
-  info_panel : InfoPanel
-  watchlist_manager : WatchListManager
-  watchlist_ui : WatchListUI
-  ==
-  + __init__(root)
-  + load_settings()
-  + save_settings()
-  - _setup_ui()
-  + fetch_data(event?, interval?, silent?)
-  - _download_worker_wrapper(ticker, interval)
-  - _process_queue()
-  - _apply_resampling()
-  + update_chart(*args)
-  + on_window_change()
-  - _auto_refresh_loop()
-  + toggle_info_panel(event?)
-  + update_ui_font()
-  + refresh_watchlist_menu()
-  + load_ticker_from_watchlist(ticker)
-  + update_star_state()
-  + on_star_click()
-  + open_manage_watchlist_overlay()
-  + open_ma_popup()
-  + on_closing()
-  + on_destroy(event)
-}
-
-class ChartPlotter {
-  -- Fields --
-  fig : plt.Figure
-  canvas : FigureCanvasTkAgg
-  app : StockChartApp
-  crosshair_lines : dict
-  crosshair_texts : dict
-  panel_labels : dict
-  axes_dict : dict
-  is_dragging : bool
-  current_df_dates : list
-  ==
-  + __init__(fig, canvas, app_state)
-  - _filter_data_by_window(df, window) : pd.DataFrame
-  - _setup_date_axis(ax, df, window)
-  + update_chart(*args)
-  - _plot_candles(ax, df, x_indices)
-  - _plot_line(ax, df, x_indices)
-  - _plot_ma(ax, df, x_indices)
-  - _plot_bbands(ax, df, x_indices)
-  - _plot_volume_overlay(ax, df, x_indices)
-  - _plot_macd(ax, df, x_indices)
-  - _plot_rsi(ax, df, x_indices)
-  - _plot_volume_profile(ax, df)
-  - _on_mouse_down(event)
-  - _on_mouse_up(event)
-  - _on_mouse_move(event)
-  - _update_crosshair(x_data, y_data, in_axes)
-}
-
-class InfoPanel {
-  -- Fields --
-  app : StockChartApp
-  panel_x : int | None
-  panel_y : int | None
-  frame : ttk.Frame
-  info_content : ttk.Frame
-  info_title_label : ttk.Label
-  ==
-  + __init__(app_state)
-  - _create_ui()
-  + toggle(event?)
-  - _apply_panel_position()
-  - _fmt(num, is_percent?, trim_large?) : str
-  - _add_section(parent, title, items)
-  - _safe_float(v) : float | None
-  - _safe_timestamp(v) : int | None
-  + update_content()
-  + start_drag(event)
-  + do_drag(event)
-  + close_info_panel()
-}
-
-class WatchListManager {
-  -- Fields --
-  filepath : Path
-  data : dict[str, list[dict]]
-  _group_order : list[str]
-  ==
-  + __init__(filepath?)
-  + load()
-  + save()
-  + create_group(group_name) : bool
-  + add_ticker(group, ticker, name)
-  + update_ticker_name(group, ticker, new_name) : bool
-  + get_groups() : list[str]
-  + get_items(group) : list[dict]
-  + is_watched(ticker) : bool
-  + rename_group(old_name, new_name) : bool
-  + delete_group(group_name) : bool
-  + move_group(group_name, delta) : bool
-  + move_ticker(group, ticker, delta) : bool
-  + remove_ticker(group, ticker) : bool
-  + remove_ticker_entirely(ticker) : bool
-}
-
-class WatchListUI {
-  -- Fields --
-  app : StockChartApp
-  manage_paned : PanedWindow
-  group_listbox : tk.Listbox
-  ticker_listbox : tk.Listbox
-  rename_var : tk.StringVar
-  ==
-  + __init__(app_state)
-  + open_add_to_watchlist_dialog()
-  + open_manage_watchlist_overlay()
-  - _on_root_configure(event)
-  + update_manage_overlay_font(size)
-  - _update_overlay_geometry(only_height?)
-  + close_manage_popup()
-  - _refresh_group_list()
-  - _on_group_select(event)
-  - _do_rename_group()
-  - _do_delete_group()
-  - _do_remove_ticker()
-  - _do_add_ticker()
-  - _do_move_group(delta)
-  - _do_move_ticker(delta)
-}
-
-' Relationships
-StockChartApp *-- ChartPlotter : plotter
-StockChartApp *-- InfoPanel : info_panel
-StockChartApp *-- WatchListManager : watchlist_manager
-StockChartApp *-- WatchListUI : watchlist_ui
-
-ChartPlotter ..> StockChartApp : reads state (self.app)
-InfoPanel ..> StockChartApp : reads state (self.app)
-WatchListUI ..> StockChartApp : reads/writes state (self.app)
-WatchListUI --> WatchListManager : CRUD via self.app.watchlist_manager
-
-@enduml
-```
+![Class Diagram](design-diagram/05-class-diagram.png)
 
 ### 2.2 Module-by-Module Method Breakdown
 
@@ -625,59 +243,9 @@ WatchListUI --> WatchListManager : CRUD via self.app.watchlist_manager
 
 All mutable application state lives on `StockChartApp`. There is no separate state container or event bus.
 
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-skinparam object {
-  BackgroundColor #E8F4FD
-  BorderColor #5B9BD5
-  HeaderBackgroundColor #C5E1F5
-}
+📄 [PlantUML Source](design-diagram/06-state-management.puml)
 
-object "StockChartApp\nState" as State {
-  **Data State**
-  current_ticker = "SPY"
-  raw_df = <DataFrame(original)>
-  history_df = <DataFrame(resampled+indicators)>
-  current_data_interval = "1d"
-  current_resample_rule = None
-  previous_close = 595.12
-  current_price = 602.45
-  stock_info = {shortName, sector, PE, ...}
-  company_name = "SPDR S&P 500"
-  ----
-  **UI Toggles (persisted)**
-  time_window_var = "1Y"
-  font_size_var = 9
-  show_ma5..ma250 = True/False
-  show_volume = True
-  show_macd = True
-  show_rsi = True
-  show_bbards = True
-  show_vp = True
-  vp_mode_var = "200 Bins"
-  vp_position = "Right"
-  chart_type_var = "Candle"
-  show_prepost = False
-  show_legend = True
-  show_info = False
-  auto_refresh = True
-  ----
-  **Runtime**
-  data_queue = <Queue>
-}
-
-note bottom of State
-  * All tk.BooleanVar / tk.StringVar / tk.IntVar
-  * Saved to conf/settings.json on close
-  * Loaded from conf/settings.json on startup
-  * stock_info is enriched with dynamic
-    fields (dayHigh, dayLow, volume) in
-    _process_queue()
-end note
-
-@enduml
-```
+![State Management Model](design-diagram/06-state-management.png)
 
 ### 2.4 Caching & Persistence Strategy
 
@@ -721,204 +289,27 @@ The metadata loader (`load_ticker_metadata`) forces a refresh if any of these ke
 
 ### 2.5 Rendering Pipeline
 
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-skinparam activity {
-  BackgroundColor #E8F4FD
-  BorderColor #5B9BD5
-}
+📄 [PlantUML Source](design-diagram/07-rendering-pipeline.puml)
 
-start
-:ChartPlotter.update_chart() called;
-
-if (history_df is empty?) then (yes)
-  :Clear figure;
-  :canvas.draw();
-  stop
-endif
-
-:Set global font from font_size_var;
-:_filter_data_by_window(history_df, window);
-
-if (window == "1D"?) then (yes)
-  :Construct fixed 1-min index\n(09:30-16:00 or 00:00-23:59 for global);
-  :Reindex df to full trading day;
-endif
-
-:fig.clear();
-:Reset crosshair_lines, panel_labels, axes_dict;
-
-:Determine panels: [price] + [macd?] + [rsi?];
-:Calculate height ratios\n(price=100-15*N, others=15 each);
-:Create GridSpec(N panels);
-
-:Create integer x_indices = [0..len(df)-1];
-:Store df.index as current_df_dates;
-
-partition "Price Panel" {
-  if (show_prepost && 1D?) then (yes)
-    :Draw pre/post market shading\n(axvspan at <09:30 and >=16:00);
-  endif
-  if (show_volume?) then (yes)
-    :_plot_volume_overlay() — twin Y axis;
-  endif
-  if (chart_type == "Line"?) then (yes)
-    :_plot_line();
-  else (Candle)
-    :_plot_candles();
-  endif
-  :_plot_ma();
-  :_plot_bbands();
-  if (show_vp?) then (yes)
-    :_plot_volume_profile() — twin X axis;
-  endif
-  :Calculate y_min/y_max from Low/High/BBands/MAs;
-  :Apply ylim with 5% padding;
-}
-
-partition "Sub-Panels" {
-  if (MACD shown?) then (yes)
-    :_plot_macd();
-  endif
-  if (RSI shown?) then (yes)
-    :_plot_rsi();
-  endif
-}
-
-:_setup_date_axis() on bottom panel;
-:Set xlim(-0.5, len-0.5);
-:Setup crosshair labels (hidden);
-:Setup crosshair vert/horiz lines (hidden);
-:canvas.draw();
-stop
-
-@enduml
-```
+![Rendering Pipeline](design-diagram/07-rendering-pipeline.png)
 
 ### 2.6 Interaction Flow — Window Change
 
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-skinparam sequence {
-  ParticipantBackgroundColor #E8F4FD
-  ParticipantBorderColor #5B9BD5
-}
+📄 [PlantUML Source](design-diagram/08-window-change.puml)
 
-actor User
-participant "StockChartApp" as App
-participant "get_interval_settings" as GIS
-participant "fetch_data" as FD
-participant "_apply_resampling" as AR
-
-User -> App : Click time window button (e.g. "3M")
-App -> App : on_window_change()
-App -> GIS : get_interval_settings("3M")
-GIS --> App : ("1h", None)
-App -> App : current_resample_rule = None
-
-alt target_interval != current_data_interval
-  App -> FD : fetch_data(interval="1h")
-  note right
-    Spawns thread → downloads 1h data
-    → _process_queue → _apply_resampling
-  end note
-else same interval
-  App -> AR : _apply_resampling()
-  AR -> AR : resample_data() → calculate_indicators()
-  AR -> App : update_chart()
-end
-
-@enduml
-```
+![Window Change Flow](design-diagram/08-window-change.png)
 
 ### 2.7 Interaction Flow — Resampling Pipeline
 
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-skinparam activity {
-  BackgroundColor #E8F4FD
-  BorderColor #5B9BD5
-}
+📄 [PlantUML Source](design-diagram/09-resampling-pipeline.puml)
 
-start
-:_apply_resampling();
-:df = resample_data(raw_df, current_resample_rule);
-
-if (interval == "1m" && is_global_asset?) then (yes)
-  :Filter to latest calendar date only\n(Midnight-to-Midnight view);
-elseif (interval == "1m" && !show_prepost && !global?) then (yes)
-  :Filter between_time("09:30", "16:00");
-endif
-
-if (df is empty?) then (yes)
-  :history_df = empty;
-  :update_chart();
-  stop
-endif
-
-if (interval == "1m" && !empty?) then (yes)
-  :Gap Fill: resample("1min").asfreq();
-  :Forward-fill Close;
-  :Set O/H/L = filled Close;
-  :Set Volume = 0 for filled rows;
-endif
-
-:history_df = df;
-:history_df = calculate_indicators(history_df);
-:update_chart();
-:toggle_info_panel();
-stop
-
-@enduml
-```
+![Resampling Pipeline](design-diagram/09-resampling-pipeline.png)
 
 ### 2.8 Interaction Flow — Crosshair
 
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-skinparam sequence {
-  ParticipantBackgroundColor #E8F4FD
-  ParticipantBorderColor #5B9BD5
-}
+📄 [PlantUML Source](design-diagram/10-crosshair.puml)
 
-actor User
-participant "ChartPlotter" as CP
-participant "matplotlib canvas" as Canvas
-
-User -> Canvas : Mouse button down (left click)
-Canvas -> CP : _on_mouse_down(event)
-CP -> CP : is_dragging = True
-CP -> CP : Resolve target axis\n(handle twin-axis overlap)
-CP -> CP : _update_crosshair(x, y, axis)
-
-loop while dragging
-  User -> Canvas : Mouse move
-  Canvas -> CP : _on_mouse_move(event)
-  CP -> CP : _update_crosshair(x, y, axis)
-  note right
-    1. Snap x to nearest bar index
-    2. Lookup date from current_df_dates
-    3. Update all vertical lines (all axes)
-    4. Update horizontal line (active axis only)
-    5. Compute OHLC from history_df
-    6. Format date label (context-aware)
-    7. Show volume label
-    8. canvas.draw_idle()
-  end note
-end
-
-User -> Canvas : Mouse button up
-Canvas -> CP : _on_mouse_up(event)
-CP -> CP : is_dragging = False
-CP -> CP : Hide all crosshair elements
-CP -> Canvas : canvas.draw_idle()
-
-@enduml
-```
+![Crosshair Interaction](design-diagram/10-crosshair.png)
 
 ---
 
@@ -926,111 +317,9 @@ CP -> Canvas : canvas.draw_idle()
 
 ### 3.1 Entity-Relationship Diagram
 
-```plantuml
-@startuml
-skinparam backgroundColor #FEFEFE
-skinparam entity {
-  BackgroundColor #E8F4FD
-  BorderColor #5B9BD5
-  HeaderBackgroundColor #C5E1F5
-}
+📄 [PlantUML Source](design-diagram/11-erd.puml)
 
-entity "OHLCV Cache File" as OHLCV {
-  * **filename** : {ticker}_{interval}_{date}.csv
-  --
-  * Date/Time (index) : datetime
-  Open : float
-  High : float
-  Low : float
-  Close : float
-  Adj Close : float
-  Volume : int
-  [Dividends] : float
-  [Stock Splits] : float
-}
-
-entity "Metadata Sidecar" as META {
-  * **filename** : {ticker}_info.csv
-  --
-  Key : str
-  Value : str
-  --
-  last_updated : ISO timestamp
-  shortName : str
-  longName : str
-  sector : str
-  industry : str
-  exchange : str
-  currency : str
-  quoteType : str
-  dividendRate : float
-  trailingAnnualDividendRate : float
-  yield : float
-  dividendYield : float
-  fiftyTwoWeekLow : float
-  fiftyTwoWeekHigh : float
-  averageVolume : int
-  beta : float
-  beta3Year : float
-  exDividendDate : timestamp
-  targetMeanPrice : float
-  totalAssets : float
-  navPrice : float
-  netExpenseRatio : float
-  annualReportExpenseRatio : float
-  expenseRatio : float
-  trailingPE : float
-  forwardPE : float
-  pegRatio : float
-  trailingPegRatio : float
-  priceToBook : float
-  priceToSalesTrailing12Months : float
-  enterpriseToEbitda : float
-  marketCap : float
-  previousClose : float
-  regularMarketPreviousClose : float
-}
-
-entity "Watchlist File" as WL {
-  * **filename** : conf/watchlist.csv
-  --
-  WatchList : str <<group name>>
-  Ticker : str
-  Name : str
-}
-
-entity "Settings File" as SETTINGS {
-  * **filename** : conf/settings.json
-  --
-  ma5..ma250 : bool
-  volume : bool
-  macd : bool
-  rsi : bool
-  bbands : bool
-  vp : bool
-  legend : bool
-  show_info : bool
-  show_prepost : bool
-  time_window : str
-  vp_mode : str
-  vp_pos : str
-  chart_type : str
-  font_size : int
-}
-
-entity "Debug Output" as DEBUG {
-  * **filename** : csv/debug_{ticker}_{interval}_{date}.csv
-  --
-  (same schema as OHLCV)
-}
-
-OHLCV }|--|| META : "1 ticker → 1 sidecar"
-WL ||--|{ WL : "group → N tickers"
-
-note "All storage is flat-file (CSV/JSON).\nNo relational database is used.\nFiles are identified by naming convention." as N1
-
-@enduml
-```
+![Entity-Relationship Diagram](design-diagram/11-erd.png)
 
 ---
 

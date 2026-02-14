@@ -1,0 +1,32 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam sequence {
+  ParticipantBackgroundColor #E8F4FD
+  ParticipantBorderColor #5B9BD5
+}
+
+actor User
+participant "StockChartApp" as App
+participant "get_interval_settings" as GIS
+participant "fetch_data" as FD
+participant "_apply_resampling" as AR
+
+User -> App : Click time window button (e.g. "3M")
+App -> App : on_window_change()
+App -> GIS : get_interval_settings("3M")
+GIS --> App : ("1h", None)
+App -> App : current_resample_rule = None
+
+alt target_interval != current_data_interval
+  App -> FD : fetch_data(interval="1h")
+  note right
+    Spawns thread → downloads 1h data
+    → _process_queue → _apply_resampling
+  end note
+else same interval
+  App -> AR : _apply_resampling()
+  AR -> AR : resample_data() → calculate_indicators()
+  AR -> App : update_chart()
+end
+
+@enduml

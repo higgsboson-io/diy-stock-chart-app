@@ -1,0 +1,36 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam activity {
+  BackgroundColor #E8F4FD
+  BorderColor #5B9BD5
+}
+
+|Main Thread (tkinter)|
+start
+:Initialize StockChartApp;
+:_setup_ui();
+:fetch_data() called;
+:Spawn daemon Thread;
+
+|Background Thread|
+:_download_worker_wrapper();
+:call fetch_stock_data_with_cache();
+:Put result into data_queue;
+stop
+
+|Main Thread (tkinter)|
+:root.after(100ms) → _process_queue();
+:Dequeue result;
+:_apply_resampling();
+:calculate_indicators();
+:update_chart();
+:root.after(60s) → _auto_refresh_loop();
+
+note right
+  * All GUI mutations happen on the main thread
+  * Background thread is daemon (auto-killed on exit)
+  * Queue decouples producer from consumer
+  * Auto-refresh runs only for "1D" window
+end note
+
+@enduml

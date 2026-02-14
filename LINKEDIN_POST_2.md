@@ -97,7 +97,9 @@ Programming is already a language-game — a highly constrained one where "valid
 
 The gap between "human language" and "machine code" isn't a chasm. It's a spectrum. And LLMs are the first usable bridge across it.
 
-I plan to dive deeper into this topic once I've had enough 🍺. Stay tuned.
+I fully intend to write a rigorous follow-up exploring Wittgenstein's language-games as a formal framework for natural language programming. However, in my experience, you need at least 6 beers before Wittgenstein starts making sense, and at that point your keyboard starts looking like a Rorschach test. 🍺🍺🍺
+
+So I'll save that one for Part III. Stay tuned — and hydrated.
 
 ---
 
