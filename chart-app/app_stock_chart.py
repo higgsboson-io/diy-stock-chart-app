@@ -37,7 +37,7 @@ class StockChartApp:
     def __init__(self, root):
         self.root = root
         self.root.title("DIY - Interactive Stock Chart")
-        self.root.state('zoomed') # Start maximized
+        self._maximize_window()  # Start maximized on Windows and Linux/WSL
         
         # Data storage
         self.current_ticker = ""
@@ -110,6 +110,28 @@ class StockChartApp:
         
         # Cleanup
         cleanup_old_cache()
+
+    def _maximize_window(self):
+        """Maximize the main window across Windows and Linux/WSL."""
+        # Windows Tk supports wm state "zoomed".
+        try:
+            self.root.state("zoomed")
+            return
+        except tk.TclError:
+            pass
+
+        # Linux/X11 (including WSLg) commonly supports the -zoomed attribute.
+        try:
+            self.root.attributes("-zoomed", True)
+            return
+        except tk.TclError:
+            pass
+
+        # Fallback for window managers that support neither method.
+        self.root.update_idletasks()
+        width = self.root.winfo_screenwidth()
+        height = self.root.winfo_screenheight()
+        self.root.geometry(f"{width}x{height}+0+0")
 
     def load_settings(self):
         try:
