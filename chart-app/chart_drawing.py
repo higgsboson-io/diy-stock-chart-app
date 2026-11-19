@@ -7,9 +7,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.dates as mdates
+import pytz
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+EASTERN = pytz.timezone("America/New_York")
 
 class ChartPlotter:
     def __init__(self, fig, canvas, app_state):
@@ -329,8 +331,8 @@ class ChartPlotter:
                      start_str = "04:00:00"
                      end_str = "20:00:00"
 
-                 start_ts = pd.Timestamp(f"{current_date} {start_str}").tz_localize("US/Eastern")
-                 end_ts = pd.Timestamp(f"{current_date} {end_str}").tz_localize("US/Eastern")
+                 start_ts = pd.Timestamp(f"{current_date} {start_str}").tz_localize(EASTERN)
+                 end_ts = pd.Timestamp(f"{current_date} {end_str}").tz_localize(EASTERN)
                  
                  # Create Full Index
                  full_index = pd.date_range(start=start_ts, end=end_ts, freq="1min")
@@ -427,7 +429,7 @@ class ChartPlotter:
         if self.app.time_window_var.get() == "1D" and self.app.show_prepost.get():
             try:
                 # Find indices for Pre-Market (< 09:30)
-                # We use the raw timestamps from df.index which are localized to US/Eastern
+                # We use the raw timestamps from df.index in Eastern time.
                 # Pre-market: everything before 09:30
                 # Post-market: everything after 16:00
                 

@@ -1,6 +1,7 @@
-pandas
-yfinance
-finta
-matplotlib
-types-requests
-types-setuptools
+nicegui>=2.11.0
+plotly>=5.20.0
+yfinance>=0.2.40
+pandas>=2.1.0
+numpy>=1.26.0
+pytz>=2024.1
+finta>=1.3

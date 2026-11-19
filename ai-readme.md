@@ -3,8 +3,8 @@
 This document chronicles the step-by-step evolution of the **DIY Stock Chart** application. It serves as a historical record of how a simple CLI script was transformed into a professional-grade GUI tool through iterative "Vibe Coding" (Prompt -> Error -> Fix -> Refine).
 
 **Project Stats:**
-*   **Timeline**: Dec 25 - Feb 13 (50 Days Elapsed)
-*   **Active Vibe Coding Time**: ~36.5 Hours
+*   **Timeline**: Dec 25, 2025 - Nov 17, 2026 (327 Days Elapsed)
+*   **Active Vibe Coding Time**: ~42.5 Hours
     *   *Session 1*: ~0.5 Hrs (Dec 25) - "Genesis"
     *   *Session 2*: ~2.5 Hrs (Dec 26) - "Core Logic"
     *   *Session 3*: ~5.5 Hrs (Dec 27) - "Volume & Grid"
@@ -18,6 +18,7 @@ This document chronicles the step-by-step evolution of the **DIY Stock Chart** a
     *   *Session 11*: ~4.5 Hrs (Jan 26) - "Optimization & Precision Mechanics"
     *   *Session 12*: ~3.5 Hrs (Jan 31) - "Global Assets & Data Smoothing"
     *   *Session 13*: ~1.0 Hrs (Feb 13) - "Reverse Engineering & Documentation"
+    *   *Session 14*: ~3.0 Hrs (Nov 17) - "Browser-Based Transformation"
 
 ---
 
@@ -296,3 +297,13 @@ This document chronicles the step-by-step evolution of the **DIY Stock Chart** a
     *   Added cross-reference links to `design.md` throughout.
 *   **`readme.md` Updated**: Added documentation navigation link pointing to `design.md` and `algorithm.md`.
 *   **LinkedIn Article (Part II)**: Drafted a follow-up article covering post-POC learnings, the 10x productivity thesis, AI reverse engineering for legacy modernization, and Wittgenstein's language-games framework applied to natural language programming.
+
+### Phase 22: Browser-Based Transformation
+
+**Time**: ~3 hours.
+
+**User Prompt**: *"I use NiceGUI and Plotly to totally rewrite it for a modern looking chart experience."*
+
+*   **Migration**: Rebuilt the Tkinter/Matplotlib interface with **NiceGUI + Plotly**, reusing the market-data, caching, indicator, and watchlist logic. The browser version was developed in the separate `gui-stock-chart` workspace.
+*   **Improvements**: Added synchronized crosshairs, movable OHLC readings, drag/touchpad history scrolling, log/linear prices, and fullscreen.
+*   **Validation**: Fixed loading, watchlist, and chart-rendering issues and checked them with Python, JavaScript, and browser tests.
